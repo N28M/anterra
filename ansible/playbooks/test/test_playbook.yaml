@@ -1,0 +1,37 @@
+---
+- name: Test Bitwarden Secrets Manager CLI Integration
+  hosts: localhost
+  gather_facts: false
+
+  vars:
+    secret_id: "{{ bw_test_key }}"
+    # bws_access_token is loaded from vault
+
+  tasks:
+    # Fetch secret from Bitwarden using bws CLI
+    - name: Get secret from Bitwarden Secrets Manager
+      shell: bws secret get "{{ secret_id }}" --access-token "{{ bws_access_token }}" --output json
+      register: bws_secret_result
+      no_log: true  # Prevents logging the secret in output
+      changed_when: false
+
+    # Parse the JSON response to extract the secret value
+    - name: Parse secret from JSON response
+      set_fact:
+        secret_data: "{{ bws_secret_result.stdout | from_json }}"
+      no_log: true
+
+    # Display the secret (be careful with this in production!)
+    - name: Display secret value
+      debug:
+        msg: "Secret value: {{ secret_data.value }}"
+
+    # Display other secret metadata (safe to show)
+    - name: Display secret metadata
+      debug:
+        msg:
+          - "Secret ID: {{ secret_data.id }}"
+          - "Secret Key: {{ secret_data.key }}"
+          - "Organization ID: {{ secret_data.organizationId }}"
+          - "Created: {{ secret_data.creationDate }}"
+          - "Last Modified: {{ secret_data.revisionDate }}"

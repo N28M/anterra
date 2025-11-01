@@ -1,95 +1,86 @@
 ---
-- name: Install and Configure Bitwarden for Ansible
+- name: Install and Configure Bitwarden Secrets Manager CLI
   hosts: rpi
   become: true
   gather_facts: true
 
+  vars:
+    bws_version: "1.0.0"
+    bws_arch: "aarch64-unknown-linux-gnu"
+    bws_download_url: "https://github.com/bitwarden/sdk-sm/releases/download/bws-v{{ bws_version }}/bws-{{ bws_arch }}-{{ bws_version }}.zip"
+    bws_install_dir: "/opt/bitwarden"
+    bws_binary_path: "{{ bws_install_dir }}/bws"
+    bws_symlink_path: "/usr/local/bin/bws"
+    # bws_access_token should be defined in vault secrets
+    # Generate one in Bitwarden Secrets Manager: Settings > Machine Accounts
+
   tasks:
-    - name: Install build dependencies and Python packages
+    # Install unzip if not already present (required to extract the binary)
+    - name: Ensure unzip is installed
       apt:
-        name:
-          - build-essential
-          - python3-pip
-          - python3-venv
-          - python3-dev
-          - cargo
-          - rustc
-          - git
-          - wget
-          - unzip
+        name: unzip
         state: present
-        update_cache: yes
+        update_cache: false
 
-    - name: Create Python virtual environment for bitwarden
-      command: python3 -m venv /opt/bitwarden_venv
-      args:
-        creates: /opt/bitwarden_venv
+    # Create installation directory for Bitwarden CLI
+    - name: Create Bitwarden installation directory
+      file:
+        path: "{{ bws_install_dir }}"
+        state: directory
+        mode: '0755'
 
-    - name: Upgrade pip in virtual environment
-      pip:
-        name: pip
-        state: latest
-        virtualenv: /opt/bitwarden_venv
+    # Download the bws CLI binary for ARM64 Linux
+    - name: Download Bitwarden Secrets Manager CLI
+      get_url:
+        url: "{{ bws_download_url }}"
+        dest: "/tmp/bws-{{ bws_arch }}-{{ bws_version }}.zip"
+        mode: '0644'
+      register: bws_download
+      changed_when: bws_download.changed
 
-    - name: Check if bitwarden-sdk is already installed
-      command: "{{ ansible_python_interpreter | default('python3') }} -c 'import bitwarden_sdk'"
-      environment:
-        PYTHONPATH: /opt/bitwarden_venv/lib/python3.13/site-packages
-      register: bitwarden_check
-      failed_when: false
+    # Extract the binary from the zip archive
+    - name: Extract bws binary
+      unarchive:
+        src: "/tmp/bws-{{ bws_arch }}-{{ bws_version }}.zip"
+        dest: "{{ bws_install_dir }}"
+        remote_src: true
+        creates: "{{ bws_binary_path }}"
+      register: bws_extract
+
+    # Set executable permissions on the binary
+    - name: Set executable permissions on bws binary
+      file:
+        path: "{{ bws_binary_path }}"
+        mode: '0755'
+        state: file
+
+    # Create symlink for system-wide access
+    - name: Create symlink to /usr/local/bin for system-wide access
+      file:
+        src: "{{ bws_binary_path }}"
+        dest: "{{ bws_symlink_path }}"
+        state: link
+        force: true
+
+    # Clean up downloaded zip file
+    - name: Remove downloaded zip file
+      file:
+        path: "/tmp/bws-{{ bws_arch }}-{{ bws_version }}.zip"
+        state: absent
+
+    # Verify installation by checking version
+    - name: Verify bws installation
+      command: bws --version
+      register: bws_version_check
       changed_when: false
 
-    - name: Install bitwarden-sdk on ARM64 with LICENSE file workaround
-      when:
-        - bitwarden_check.rc != 0
-        - ansible_architecture in ['aarch64', 'armv7l']
-      block:
-        - name: Create temporary directory for bitwarden-sdk build
-          tempfile:
-            state: directory
-          register: bitwarden_tmpdir
-
-        - name: Download bitwarden-sdk source tarball
-          get_url:
-            url: "https://files.pythonhosted.org/packages/dd/03/11934ae9d668283895286872a7af3de25d324ec9ac86da5a56ac9dc48544/bitwarden_sdk-1.0.0.tar.gz"
-            dest: "{{ bitwarden_tmpdir.path }}/bitwarden_sdk-1.0.0.tar.gz"
-            mode: '0644'
-
-        - name: Extract bitwarden-sdk tarball
-          unarchive:
-            src: "{{ bitwarden_tmpdir.path }}/bitwarden_sdk-1.0.0.tar.gz"
-            dest: "{{ bitwarden_tmpdir.path }}"
-            remote_src: yes
-
-        - name: Download missing LICENSE file
-          get_url:
-            url: "https://raw.githubusercontent.com/bitwarden/sdk/refs/heads/main/LICENSE"
-            dest: "{{ bitwarden_tmpdir.path }}/bitwarden_sdk-1.0.0/LICENSE"
-            mode: '0644'
-
-        - name: Install bitwarden-sdk from fixed source
-          pip:
-            name: "{{ bitwarden_tmpdir.path }}/bitwarden_sdk-1.0.0"
-            virtualenv: /opt/bitwarden_venv
-
-        - name: Clean up temporary directory
-          file:
-            path: "{{ bitwarden_tmpdir.path }}"
-            state: absent
-      rescue:
-        - name: Display error message if ARM64 installation fails
-          debug:
-            msg: "Failed to install bitwarden-sdk on ARM64. Check the error above for details."
-
-    - name: Install bitwarden-sdk on x86_64 via pip
-      when:
-        - bitwarden_check.rc != 0
-        - ansible_architecture == 'x86_64'
-      pip:
-        name: bitwarden-sdk
-        virtualenv: /opt/bitwarden_venv
-
-    - name: Display instructions for installing bitwarden.secrets collection
+    - name: Display bws version
       debug:
-        msg: |
-          Please finish the setup by installing the ansible collection on the host using: ansible-galaxy collection install bitwarden.secrets
+        msg: "Bitwarden Secrets Manager CLI installed: {{ bws_version_check.stdout }}"
+
+    # Configuration complete. The bws CLI is now installed and ready to use.
+    # Next steps:
+    # - Store bws_access_token in Ansible Vault (inventory/group_vars/all/secrets.yaml)
+    # - Use bws in playbooks with vault token: shell: bws secret get <secret-id> --access-token "{{ bws_access_token }}"
+    # - Alternative: Set environment variable in task: environment: BWS_ACCESS_TOKEN: "{{ bws_access_token }}"
+    # - For OpenTofu: Use external data source or official bitwarden-secrets provider

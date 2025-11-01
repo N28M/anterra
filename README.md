@@ -7,7 +7,7 @@ Infrastructure as Code (IaC) repository for managing and provisioning infrastruc
 Anterra provides a centralized platform for:
 - Configuration management and automation via Ansible
 - Infrastructure provisioning for Cloudflare and Portainer via OpenTofu
-- Secure secrets management using Ansible Vault
+- Secure secrets management using Ansible Vault and Bitwarden Secrets Manager
 
 ## Project Structure
 
@@ -21,7 +21,8 @@ anterra/
 │   │   └── host_vars/                    # Host-specific variables
 │   ├── playbooks/                        # Ansible playbooks
 │   │   └── common/                       # Common playbooks for all hosts
-│   │       └── install_tailscale.yaml    # Tailscale installation and configuration
+│   │       ├── install_tailscale.yaml    # Tailscale installation and configuration
+│   │       └── install_bitwarden.yaml    # Bitwarden Secrets Manager CLI installation
 │   └── vault/                            # Ansible vault configuration
 │       └── .vault_password               # Vault password file (gitignored)
 └── opentofu/                             # OpenTofu infrastructure as code
@@ -122,9 +123,132 @@ The playbook automatically optimizes UDP GRO forwarding for improved throughput 
 **Notes**:
 - If running locally on the device, you may experience brief network disconnection - this is normal
 - Auth keys expire separately from node keys - renew them when needed
+- **Why store Tailscale auth key in Ansible Vault instead of Bitwarden**: While it's possible to fetch the auth key from Bitwarden Secrets Manager, it's not recommended because:
+  - Tailscale auth keys are short-lived
+  - Auth keys are only used once during initial node connection
+  - Once connected, Tailscale uses machine-generated keys for ongoing authentication
+  - Storing in Ansible Vault is simpler and avoids unnecessary dependency on external secrets management
 - See detailed documentation at: [Tailscale Performance Best Practices](https://tailscale.com/kb/1320/performance-best-practices)
 
 **Reference**: [Tailscale Documentation](https://tailscale.com/)
+
+#### Bitwarden Secrets Manager CLI Installation
+
+**File**: `ansible/playbooks/common/install_bitwarden.yaml`
+
+Installs the Bitwarden Secrets Manager CLI (bws) for managing secrets across Ansible playbooks and OpenTofu configurations. This provides an alternative to Ansible Vault for secrets that need to be shared across multiple tools or teams.
+
+**Features**:
+- Downloads and installs the ARM64 Linux native binary
+- Installs to `/opt/bitwarden/` with system-wide symlink at `/usr/local/bin/bws`
+- Verifies installation with version check
+- Enables secrets retrieval in both Ansible and OpenTofu workflows
+
+**Prerequisites**:
+
+1. Set up a Bitwarden Secrets Manager machine account:
+   - Log in to your Bitwarden organization
+   - Navigate to Settings > Machine Accounts
+   - Create a new machine account and generate an access token
+   - **CRITICAL**: Grant the machine account access to the Projects containing your secrets
+     - In Bitwarden Secrets Manager, secrets must be organized within Projects
+     - The machine account cannot access any secrets unless explicitly granted access to their Projects
+     - Go to the machine account settings and add the required Projects under "Access"
+     - Without project access, bws commands will fail even with a valid access token
+
+2. Store the access token in Ansible Vault:
+   ```bash
+   cd ansible
+   ansible-vault edit inventory/group_vars/all/secrets.yaml
+   ```
+   Add: `bws_access_token: "your-access-token-here"`
+
+**Basic Usage**:
+
+Run the playbook to install the CLI:
+```bash
+cd ansible
+ansible-playbook -i inventory/hosts.yaml playbooks/common/install_bitwarden.yaml
+```
+
+**Using bws in Ansible Playbooks**:
+
+Retrieve secrets directly in tasks:
+```yaml
+- name: Get database password from Bitwarden
+  shell: bws secret get <secret-id> --access-token "{{ bws_access_token }}" --output json
+  register: db_password_result
+  no_log: true
+
+- name: Parse secret value
+  set_fact:
+    db_password: "{{ (db_password_result.stdout | from_json).value }}"
+  no_log: true
+```
+
+Or set the environment variable for simplified access:
+```yaml
+environment:
+  BWS_ACCESS_TOKEN: "{{ bws_access_token }}"
+tasks:
+  - name: Get secret
+    shell: bws secret get <secret-id> --output json
+```
+
+**Using bws with OpenTofu**:
+
+**Option 1: External Data Source** (uses bws CLI)
+```hcl
+data "external" "bitwarden_secret" {
+  program = ["bws", "secret", "get", var.secret_id, "--output", "json"]
+
+  # Set access token via environment variable
+  environment = {
+    BWS_ACCESS_TOKEN = var.bws_access_token
+  }
+}
+
+# Access the secret value
+locals {
+  secret_value = data.external.bitwarden_secret.result.value
+}
+```
+
+**Option 2: Official Provider** (recommended, uses Go SDK)
+```hcl
+terraform {
+  required_providers {
+    bitwarden-secrets = {
+      source  = "bitwarden/bitwarden-secrets"
+      version = "~> 0.1"
+    }
+  }
+}
+
+provider "bitwarden-secrets" {
+  access_token = var.bws_access_token
+}
+
+data "bitwarden-secrets_secret" "example" {
+  id = var.secret_id
+}
+
+# Use the secret
+resource "example_resource" "foo" {
+  password = data.bitwarden-secrets_secret.example.value
+}
+```
+
+**Notes**:
+- The Python SDK (`bitwarden-sdk`) is NOT used due to ARM64 compatibility issues
+- Only the native CLI binary is installed
+- Secret IDs can be found in the Bitwarden Secrets Manager web interface
+- Access tokens should be treated as highly sensitive credentials
+- For OpenTofu, the official provider is recommended as it uses the Go SDK internally
+
+**Reference**:
+- [Bitwarden Secrets Manager CLI Documentation](https://bitwarden.com/help/secrets-manager-cli/)
+- [Bitwarden Terraform Provider](https://github.com/bitwarden/terraform-provider-bitwarden-secrets)
 
 ### OpenTofu Configuration
 

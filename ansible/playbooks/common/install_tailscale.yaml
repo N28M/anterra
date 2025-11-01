@@ -12,15 +12,9 @@
     # Generate one at: https://login.tailscale.com/admin/settings/keys
 
   tasks:
-    - name: Check if Tailscale is already installed
-      command: which tailscale
-      register: tailscale_check
-      changed_when: false
-      failed_when: false
-
+    # Install Tailscale from official installer script (idempotent)
     - name: Install Tailscale from official installer script
       shell: curl -fsSL https://tailscale.com/install.sh | sh
-      when: tailscale_check.rc != 0
       register: tailscale_install
       changed_when: "'installed' in tailscale_install.stdout or 'upgrade' in tailscale_install.stdout.lower()"
 
@@ -88,52 +82,8 @@
         sysctl_set: true
       when: enable_subnet_router | bool
 
-    - name: Display Tailscale configuration summary
-      debug:
-        msg: |
-          TAILSCALE CONFIGURATION SUMMARY
-
-          Automatic Updates: {{ 'ENABLED' if automatically_update | bool else 'DISABLED' }}
-          Subnet Router: {{ 'ENABLED' if enable_subnet_router | bool else 'DISABLED' }}
-          {% if enable_subnet_router | bool and tailscale_subnet_routes is defined %}
-          Advertised Routes: {{ tailscale_subnet_routes }}
-          {% elif enable_subnet_router | bool %}
-          Advertised Routes: None configured (set tailscale_subnet_routes in vault)
-          {% endif %}
-          Exit Node: {{ 'ENABLED' if enable_exit_node | bool else 'DISABLED' }}
-
-    - name: Display next steps message
-      debug:
-        msg: |
-          IMPORTANT: Next Steps Required
-
-          1. NETWORK CONNECTIVITY NOTE
-             If running this playbook locally on the device, you may experience a temporary
-             network disconnection as Tailscale modifies the network configuration. This is
-             normal and the connection will be restored once Tailscale finishes initialization.
-
-          2. APPROVE ROUTES AND EXIT NODE IN TAILSCALE CONSOLE
-             Subnet routes and exit node features require manual approval in the Tailscale admin console:
-
-             a) Visit: https://login.tailscale.com/admin/machines
-             b) Find your device ({{ inventory_hostname }})
-             c) Click the device to open its details
-             d) Go to "Route settings"
-             e) Review and approve the advertised subnet routes
-             f) Review and approve the exit node setting
-
-             Without this approval, subnet routing and exit node features will not function.
-
-          3. DISABLE KEY EXPIRY (RECOMMENDED FOR HEADLESS DEVICES)
-             For unattended devices (servers, Raspberry Pi, etc.), it is recommended to disable
-             key expiry to prevent authentication failures:
-
-             a) In the Tailscale admin console, go to your device settings
-             b) Toggle OFF the "Key expiry" setting
-             c) This allows the device to maintain connection without re-authentication
-
-          4. CONFIGURATION CHANGES
-             To modify any settings, edit the vault secrets and re-run this playbook:
-
-             ansible-vault edit inventory/group_vars/all/secrets.yaml
-             ansible-playbook -i inventory/hosts.yaml playbooks/common/install_tailscale.yaml
+    # Configuration complete. Tailscale is now installed and configured.
+    # See the homelab setup documentation for next steps including:
+    # - Manual approval of subnet routes and exit node in Tailscale admin console
+    # - Disabling key expiry for headless devices
+    # - Network connectivity expectations during configuration

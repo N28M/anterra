@@ -1,537 +1,246 @@
 # Anterra
 
-Infrastructure as Code (IaC) repository for managing and provisioning infrastructure using Ansible and OpenTofu.
+Infrastructure as Code (IaC) repository combining Ansible for configuration management and OpenTofu for infrastructure provisioning, with integrated Bitwarden Secrets Manager for secure credential management.
 
 ## Overview
 
-Anterra provides a centralized platform for:
-- Configuration management and automation via Ansible
-- Infrastructure provisioning for Cloudflare and Portainer via OpenTofu
-- Secure secrets management using Ansible Vault and Bitwarden Secrets Manager
+This repository implements a dual-tool IaC approach:
+- **Ansible**: Configuration management and software installation
+- **OpenTofu**: Infrastructure provisioning (Cloudflare, Portainer)
+- **Bitwarden Secrets Manager**: Runtime secret retrieval (no hardcoded credentials)
 
 ## Project Structure
 
 ```
 anterra/
-├── ansible/                              # Ansible configuration management
-│   ├── ansible.cfg                       # Ansible configuration
-│   ├── inventory/                        # Host and group definitions
-│   │   ├── hosts.yaml                    # Inventory of target hosts
-│   │   ├── group_vars/all/secrets.yaml   # Encrypted group variables (Ansible Vault)
+├── ansible/
+│   ├── ansible.cfg                       # Auto-configured vault password location
+│   ├── inventory/
+│   │   ├── hosts.yaml                    # Target hosts
+│   │   ├── group_vars/all/secrets.yaml   # Encrypted secrets (Ansible Vault)
 │   │   └── host_vars/                    # Host-specific variables
-│   ├── playbooks/                        # Ansible playbooks
-│   │   └── common/                       # Common playbooks for all hosts
-│   │       ├── install_opentofu.yaml     # OpenTofu infrastructure provisioning tool
-│   │       ├── install_tailscale.yaml    # Tailscale installation and configuration
-│   │       ├── install_bitwarden.yaml    # Bitwarden Secrets Manager CLI installation
-│   │       └── install_caddy.yaml        # Caddy web server with Cloudflare DNS plugin
-│   └── vault/                            # Ansible vault configuration
-│       └── .vault_password               # Vault password file (gitignored)
-└── opentofu/                             # OpenTofu infrastructure as code
-    ├── cloudflare/                       # Cloudflare infrastructure
-    └── portainer/                        # Portainer container orchestration
+│   ├── playbooks/common/
+│   │   ├── install_opentofu.yaml
+│   │   ├── install_tailscale.yaml
+│   │   ├── install_bitwarden.yaml
+│   │   └── install_caddy.yaml
+│   └── vault/.vault_password             # Vault password (gitignored)
+└── opentofu/
+    ├── cloudflare/                       # DNS, CDN, security
+    └── portainer/                        # Container orchestration
 ```
 
 ## Prerequisites
 
-The following dependencies are required for this setup:
+- **ansible** (installed via pipx)
+- **opentofu**
+- **Bitwarden Secrets Manager** account with machine account configured
 
-- **git** - Version control
-- **tree** - Directory structure visualization
-- **btop** - System resource monitoring
-- **npm** - Node package manager (used for installing Claude Code)
-- **pipx** - Python application installer (for installing Ansible in isolated environments)
-- **ansible** - Configuration management (installed via pipx without sudo)
-- **opentofu** - Infrastructure provisioning (open-source Terraform alternative)
-- Access credentials for target infrastructure (Cloudflare, Portainer, etc.)
+## Secrets Management Architecture
 
-## Getting Started
+### Ansible Vault
+- Used for: Ansible-specific secrets, short-lived credentials (e.g., Tailscale auth keys)
+- Password file: `ansible/vault/.vault_password` (auto-loaded, gitignored)
+- Encrypted file: `ansible/inventory/group_vars/all/secrets.yaml`
 
-### Ansible Configuration
+### Bitwarden Secrets Manager
+- Used for: Cross-tool secrets, API tokens, long-lived credentials
+- Integration: Both Ansible playbooks and OpenTofu configurations
+- Provider: `maxlaverse/bitwarden` with embedded client (no CLI dependency)
 
-1. Configure target hosts in `ansible/inventory/hosts.yaml`
-2. Set vault password in `ansible/vault/.vault_password`
-3. Create playbooks in `ansible/playbooks/`
-4. Store secrets in `ansible/inventory/group_vars/all/secrets.yaml` (encrypted with Ansible Vault)
+## Bitwarden + OpenTofu Integration
 
-### Running Ansible Playbooks
+This setup uniquely integrates Bitwarden Secrets Manager directly into OpenTofu using the `maxlaverse/bitwarden` provider with embedded client mode.
 
-```bash
-cd ansible
-ansible-playbook -i inventory/hosts.yaml playbooks/<playbook-name>.yaml
-```
+### Initial Setup (One-time)
 
-### Available Playbooks
-
-#### OpenTofu Installation
-
-**File**: `ansible/playbooks/common/install_opentofu.yaml`
-
-Installs OpenTofu (open-source Terraform alternative) for Infrastructure as Code provisioning. OpenTofu enables infrastructure management alongside Ansible configuration management for a complete IaC solution.
-
-**Features**:
-- Downloads official OpenTofu installer script from trusted source
-- Installs via system package manager (Debian/Ubuntu apt)
-- Automatically manages dependencies (apt-transport-https, ca-certificates, GPG keys)
-- Verifies installation with version check
-- Clean and efficient package manager integration for automatic updates
-
-**Installation Method**:
-
-The playbook uses the official OpenTofu installer script with the `deb` method, which:
-- Verifies apt-get is available on the system
-- Installs required dependencies
-- Configures GPG keys for package signature verification
-- Adds OpenTofu repository to apt sources
-- Installs tofu package via apt
-
-**Basic Usage**:
-
-```bash
-cd ansible
-ansible-playbook -i inventory/hosts.yaml playbooks/common/install_opentofu.yaml
-```
-
-**Post-Installation**:
-
-After installation, OpenTofu is ready for infrastructure provisioning:
-
-```bash
-# Navigate to infrastructure directory
-cd opentofu/cloudflare  # or opentofu/portainer
-
-# Initialize OpenTofu
-tofu init
-
-# Preview infrastructure changes
-tofu plan
-
-# Apply infrastructure changes
-tofu apply
-```
-
-**Infrastructure Directories**:
-
-- **`opentofu/cloudflare/`**: Manages Cloudflare infrastructure
-  - DNS records
-  - CDN configuration
-  - Security settings
-  - Integration with Caddy reverse proxy
-
-- **`opentofu/portainer/`**: Manages Portainer deployment
-  - Container orchestration setup
-  - Service configuration
-
-**Supported Platforms**:
-
-The installer script supports multiple installation methods:
-- **deb** (Debian/Ubuntu via apt) - used by this playbook
-- **rpm** (RedHat/CentOS via yum/dnf)
-- **zypper** (openSUSE/SLE)
-- **standalone** (manual binary installation)
-
-**Reference**:
-- [OpenTofu Documentation](https://opentofu.org/)
-- [OpenTofu GitHub](https://github.com/opentofu/opentofu)
-
-#### Tailscale Installation and Configuration
-
-**File**: `ansible/playbooks/common/install_tailscale.yaml`
-
-Installs and configures Tailscale with support for:
-- Automatic updates
-- Subnet routing with automatic IP forwarding
-- Exit node functionality
-- UDP GRO forwarding optimization for improved performance on international connections
-
-**Prerequisites**:
-
-Before running the playbook, generate an authentication key:
-1. Visit: https://login.tailscale.com/admin/settings/keys
-2. Create a new authentication key
-3. Add it to your vault secrets:
-   ```bash
-   cd ansible
-   ansible-vault edit inventory/group_vars/all/secrets.yaml
-   ```
-4. Add the key: `tailscale_auth_key: "tskey-your-key-here"`
-5. (Optional) Add subnet routes: `tailscale_subnet_routes: "192.0.2.0/24,198.51.100.0/24"`
-
-**Basic Usage**:
-
-Run the playbook with default configuration:
-```bash
-cd ansible
-ansible-playbook -i inventory/hosts.yaml playbooks/common/install_tailscale.yaml
-```
-
-Disable features as needed:
-```bash
-# Disable subnet router
-ansible-playbook -i inventory/hosts.yaml playbooks/common/install_tailscale.yaml \
-  -e "enable_subnet_router=false"
-
-# Disable exit node
-ansible-playbook -i inventory/hosts.yaml playbooks/common/install_tailscale.yaml \
-  -e "enable_exit_node=false"
-```
-
-**Post-Playbook Setup**:
-
-After running the playbook, complete these steps in the Tailscale admin console:
-
-1. Visit: https://login.tailscale.com/admin/machines
-2. Find your device and open its settings
-3. Navigate to "Route settings"
-4. Approve the advertised subnet routes
-5. Approve the exit node setting
-
-**For Headless/Unattended Devices**:
-- In device settings, toggle OFF "Key expiry" to prevent authentication failures
-- This is recommended for servers and Raspberry Pi running Tailscale unattended
-
-**Performance Optimization**:
-The playbook automatically optimizes UDP GRO forwarding for improved throughput on exit node and subnet router traffic, especially beneficial for international connections.
-
-**Notes**:
-- If running locally on the device, you may experience brief network disconnection - this is normal
-- Auth keys expire separately from node keys - renew them when needed
-- **Why store Tailscale auth key in Ansible Vault instead of Bitwarden**: While it's possible to fetch the auth key from Bitwarden Secrets Manager, it's not recommended because:
-  - Tailscale auth keys are short-lived
-  - Auth keys are only used once during initial node connection
-  - Once connected, Tailscale uses machine-generated keys for ongoing authentication
-  - Storing in Ansible Vault is simpler and avoids unnecessary dependency on external secrets management
-- See detailed documentation at: [Tailscale Performance Best Practices](https://tailscale.com/kb/1320/performance-best-practices)
-
-**Reference**: [Tailscale Documentation](https://tailscale.com/)
-
-#### Bitwarden Secrets Manager CLI Installation
-
-**File**: `ansible/playbooks/common/install_bitwarden.yaml`
-
-Installs the Bitwarden Secrets Manager CLI (bws) for managing secrets across Ansible playbooks and OpenTofu configurations. This provides an alternative to Ansible Vault for secrets that need to be shared across multiple tools or teams.
-
-**Features**:
-- Downloads and installs the ARM64 Linux native binary
-- Installs to `/opt/bitwarden/` with system-wide symlink at `/usr/local/bin/bws`
-- Verifies installation with version check
-- Enables secrets retrieval in both Ansible and OpenTofu workflows
-
-**Prerequisites**:
-
-1. Set up a Bitwarden Secrets Manager machine account:
-   - Log in to your Bitwarden organization
+1. **Create Machine Account in Bitwarden**:
    - Navigate to Settings > Machine Accounts
-   - Create a new machine account and generate an access token
-   - **CRITICAL**: Grant the machine account access to the Projects containing your secrets
-     - In Bitwarden Secrets Manager, secrets must be organized within Projects
-     - The machine account cannot access any secrets unless explicitly granted access to their Projects
-     - Go to the machine account settings and add the required Projects under "Access"
-     - Without project access, bws commands will fail even with a valid access token
+   - Generate access token
+   - **CRITICAL**: Grant machine account access to Projects containing secrets
 
-2. Store the access token in Ansible Vault:
+2. **Store Secrets in Bitwarden**:
+   - Organize secrets within Projects
+   - Note Secret IDs (UUIDs) for OpenTofu configuration
+
+3. **Configure Access Token**:
    ```bash
-   cd ansible
-   ansible-vault edit inventory/group_vars/all/secrets.yaml
+   # Add to ~/.bashrc (or ~/.zshrc)
+   export TF_VAR_bws_access_token="your-access-token-here"
+
+   # Reload shell
+   source ~/.bashrc
    ```
-   Add: `bws_access_token: "your-access-token-here"`
 
-**Basic Usage**:
+### How It Works
 
-Run the playbook to install the CLI:
-```bash
-cd ansible
-ansible-playbook -i inventory/hosts.yaml playbooks/common/install_bitwarden.yaml
-```
+**Authentication Flow**:
+1. OpenTofu reads `TF_VAR_bws_access_token` from environment
+2. Connects to Bitwarden via embedded client (no external CLI)
+3. Fetches secrets using Secret IDs from `tofu.auto.tfvars`
+4. Uses retrieved credentials to authenticate with infrastructure providers
 
-**Using bws in Ansible Playbooks**:
+**Key Files**:
+- `providers.tofu`: Defines Cloudflare + Bitwarden providers
+- `bitwarden.tofu`: Configures Bitwarden provider, fetches secrets via data sources
+- `variables.tofu`: Variable declarations
+- `tofu.auto.tfvars`: Secret IDs and zone IDs (safe to commit)
+- `dns_records.tofu`: DNS A records defined in code (safe to commit)
 
-Retrieve secrets directly in tasks:
-```yaml
-- name: Get database password from Bitwarden
-  shell: bws secret get <secret-id> --access-token "{{ bws_access_token }}" --output json
-  register: db_password_result
-  no_log: true
+**What Gets Committed**:
+- ✅ Secret IDs (UUIDs) - just identifiers
+- ✅ DNS records in code
+- ✅ All `.tofu` configuration files
+- ❌ Access tokens (environment variable only)
+- ❌ Actual secret values (fetched at runtime)
 
-- name: Parse secret value
-  set_fact:
-    db_password: "{{ (db_password_result.stdout | from_json).value }}"
-  no_log: true
-```
+## Cloudflare DNS Management
 
-Or set the environment variable for simplified access:
-```yaml
-environment:
-  BWS_ACCESS_TOKEN: "{{ bws_access_token }}"
-tasks:
-  - name: Get secret
-    shell: bws secret get <secret-id> --output json
-```
+DNS records are defined in code using a `for_each` pattern in `opentofu/cloudflare/dns_records.tofu`:
 
-**Using bws with OpenTofu**:
-
-**Option 1: External Data Source** (uses bws CLI)
 ```hcl
-data "external" "bitwarden_secret" {
-  program = ["bws", "secret", "get", var.secret_id, "--output", "json"]
-
-  # Set access token via environment variable
-  environment = {
-    BWS_ACCESS_TOKEN = var.bws_access_token
-  }
-}
-
-# Access the secret value
 locals {
-  secret_value = data.external.bitwarden_secret.result.value
-}
-```
-
-**Option 2: Official Provider** (recommended, uses Go SDK)
-```hcl
-terraform {
-  required_providers {
-    bitwarden-secrets = {
-      source  = "bitwarden/bitwarden-secrets"
-      version = "~> 0.1"
+  a_records = {
+    "subdomain" = {
+      content = "192.0.2.1"
+      proxied = true   # Cloudflare proxy (orange cloud)
+      ttl     = 1      # Auto
     }
   }
 }
+```
 
-provider "bitwarden-secrets" {
-  access_token = var.bws_access_token
+This approach allows:
+- Version-controlled infrastructure
+- No secrets in configuration files
+- Dynamic record creation from a map structure
+
+## Available Playbooks
+
+### OpenTofu Installation
+**File**: `playbooks/common/install_opentofu.yaml`
+
+Installs OpenTofu via official installer script using system package manager (apt).
+
+### Tailscale VPN
+**File**: `playbooks/common/install_tailscale.yaml`
+
+Configures Tailscale with:
+- Subnet routing with automatic IP forwarding
+- Exit node functionality
+- UDP GRO forwarding optimization
+
+**Key Variables** (in Ansible Vault):
+- `tailscale_auth_key`: Auth key from Tailscale admin console
+- `tailscale_subnet_routes`: Comma-separated subnet routes (optional)
+
+**Post-Install**: Approve routes and exit node in Tailscale admin console.
+
+**Note**: Auth keys stored in Ansible Vault (not Bitwarden) because they're short-lived and only used once during initial connection.
+
+### Bitwarden Secrets Manager CLI
+**File**: `playbooks/common/install_bitwarden.yaml`
+
+Installs native ARM64 `bws` CLI binary to `/opt/bitwarden/` with symlink at `/usr/local/bin/bws`.
+
+**Key Variables** (in Ansible Vault):
+- `bws_access_token`: Machine account access token
+
+**Usage in Ansible**:
+```yaml
+- name: Get secret from Bitwarden
+  shell: bws secret get <secret-id> --access-token "{{ bws_access_token }}" --output json
+  register: result
+  no_log: true
+
+- name: Parse secret
+  set_fact:
+    secret_value: "{{ (result.stdout | from_json).value }}"
+  no_log: true
+```
+
+### Caddy Web Server
+**File**: `playbooks/common/install_caddy.yaml`
+
+Installs Caddy with Cloudflare DNS plugin for automatic HTTPS via DNS-01 challenge.
+
+**Installation Only**: Caddyfile configuration managed by OpenTofu (not Ansible).
+
+**Key Variables** (in Ansible Vault):
+- `cloudflare_api_token_secret_id`: Bitwarden secret ID
+- `bws_access_token`: For fetching token from Bitwarden
+
+**Integration**: OpenTofu manages both DNS records and Caddy reverse proxy configuration together.
+
+## Configuration Files
+
+### Cloudflare OpenTofu Module
+
+All infrastructure configuration is stored in Bitwarden Secrets Manager. Update `opentofu/cloudflare/tofu.auto.tfvars` with Bitwarden secret IDs:
+
+```hcl
+# Bitwarden secret IDs for all infrastructure configuration
+cloudflare_api_token_secret_id       = "uuid-from-bitwarden"
+cloudflare_account_id_secret_id      = "uuid-from-bitwarden"
+cloudflare_zone_id_secret_id         = "uuid-from-bitwarden"
+homelab_reverse_proxy_ip_secret_id   = "uuid-from-bitwarden"
+vps_reverse_proxy_ip_secret_id       = "uuid-from-bitwarden"
+```
+
+**Bitwarden Secrets to Create:**
+1. Cloudflare API token
+2. Cloudflare account ID
+3. Cloudflare zone ID
+4. Homelab reverse proxy IP address
+5. VPS reverse proxy IP address
+
+Add DNS records in `opentofu/cloudflare/dns_records.tofu`:
+```hcl
+locals {
+  a_records = {
+    # Internal services (homelab)
+    "service1" = { content = local.homelab_reverse_proxy_ip }
+
+    # External services (VPS)
+    "service2" = { content = local.vps_reverse_proxy_ip, proxied = true }
+  }
 }
-
-data "bitwarden-secrets_secret" "example" {
-  id = var.secret_id
-}
-
-# Use the secret
-resource "example_resource" "foo" {
-  password = data.bitwarden-secrets_secret.example.value
-}
 ```
-
-**Notes**:
-- The Python SDK (`bitwarden-sdk`) is NOT used due to ARM64 compatibility issues
-- Only the native CLI binary is installed
-- Secret IDs can be found in the Bitwarden Secrets Manager web interface
-- Access tokens should be treated as highly sensitive credentials
-- For OpenTofu, the official provider is recommended as it uses the Go SDK internally
-
-**Reference**:
-- [Bitwarden Secrets Manager CLI Documentation](https://bitwarden.com/help/secrets-manager-cli/)
-- [Bitwarden Terraform Provider](https://github.com/bitwarden/terraform-provider-bitwarden-secrets)
-
-#### Caddy Web Server Installation with Cloudflare DNS
-
-**File**: `ansible/playbooks/common/install_caddy.yaml`
-
-Installs Caddy web server with the Cloudflare DNS plugin for automatic HTTPS certificate management. This playbook focuses on installation only - the Caddyfile configuration is managed separately via OpenTofu for unified infrastructure management.
-
-**Features**:
-- Downloads custom-built Caddy binary with cloudflare-dns plugin for ARM64
-- Creates dedicated system user and group with secure settings
-- Sets up systemd service with security hardening
-- Fetches Cloudflare API token from Bitwarden Secrets Manager
-- Configures environment for automatic HTTPS certificate management via DNS-01 challenge
-- **Does NOT create Caddyfile** - configuration managed by OpenTofu
-
-**Prerequisites**:
-
-1. Set up Cloudflare API token:
-   - Log in to Cloudflare dashboard
-   - Go to My Profile > API Tokens
-   - Create token with "Zone - DNS - Edit" permissions for your domain
-   - Store the token in Bitwarden Secrets Manager
-
-2. Add the Cloudflare token secret ID to Ansible Vault:
-   ```bash
-   cd ansible
-   ansible-vault edit inventory/group_vars/all/secrets.yaml
-   ```
-   Add: `cloudflare_api_token_secret_id: "your-bitwarden-secret-id"`
-
-3. Ensure `bws_access_token` is already configured (see Bitwarden section above)
-
-4. **CRITICAL**: Grant machine account access to the Bitwarden Project containing the Cloudflare token
-
-**Basic Usage**:
-
-Run the playbook to install Caddy:
-```bash
-cd ansible
-ansible-playbook -i inventory/hosts.yaml playbooks/common/install_caddy.yaml
-```
-
-**OpenTofu Integration**:
-
-After installation, reverse proxy configuration is managed through OpenTofu:
-- OpenTofu creates and manages the Caddyfile at `/etc/caddy/Caddyfile`
-- DNS records and reverse proxy configuration are managed together
-- This ensures consistency between DNS entries and proxy configurations
-- See the OpenTofu Cloudflare module for configuration management
-
-**Service Management**:
-
-```bash
-# Check service status
-systemctl status caddy
-
-# View logs
-journalctl -u caddy -f
-
-# Reload configuration (graceful, no downtime)
-sudo systemctl reload caddy
-
-# Restart service
-sudo systemctl restart caddy
-```
-
-**File Locations**:
-- Binary: `/usr/bin/caddy`
-- Configuration: `/etc/caddy/Caddyfile` (managed by OpenTofu)
-- Data/Certificates: `/var/lib/caddy/`
-- Cloudflare token: `/etc/caddy/cloudflare_token` (secure, readable by caddy user only)
-- Environment file: `/etc/caddy/caddy.env`
-- Systemd service: `/etc/systemd/system/caddy.service`
-
-**Security Features**:
-- Runs as dedicated `caddy` system user with `/usr/sbin/nologin` shell
-- Cloudflare token stored with 0400 permissions (owner read-only)
-- Systemd service includes security hardening (PrivateTmp, ProtectSystem)
-- Minimal capabilities (CAP_NET_ADMIN, CAP_NET_BIND_SERVICE)
-
-**Notes**:
-- Caddy automatically obtains and renews HTTPS certificates via DNS-01 challenge
-- DNS-01 challenge allows certificates for servers behind Cloudflare proxy
-- Certificates are stored in `/var/lib/caddy/.local/share/caddy/`
-- No web root directory is created (reverse proxy only configuration)
-- Cloudflare proxy can be enabled (orange cloud) for additional DDoS protection
-
-**Troubleshooting**:
-- If certificate issuance fails, check: `journalctl -u caddy -n 100`
-- Verify Cloudflare API token has correct permissions
-- Ensure DNS records exist for domains in Caddyfile
-- Validate Caddyfile syntax: `caddy validate --config /etc/caddy/Caddyfile`
-
-**Reference**:
-- [Caddy Documentation](https://caddyserver.com/docs/)
-- [Cloudflare DNS Plugin](https://github.com/caddy-dns/cloudflare)
-- [Caddy Reverse Proxy Guide](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy)
-
-### OpenTofu Configuration
-
-OpenTofu uses Bitwarden Secrets Manager to securely fetch API tokens and credentials at runtime. This eliminates the need to store sensitive credentials in configuration files.
-
-#### Bitwarden Secrets Manager Integration
-
-**Prerequisites**:
-
-1. **Machine Account Setup** (one-time):
-   - Log in to Bitwarden Secrets Manager
-   - Navigate to Settings > Machine Accounts
-   - Create a new machine account
-   - Generate an access token for the machine account
-   - **IMPORTANT**: Grant the machine account access to Projects containing your secrets
-     - Without Project access, the machine account cannot retrieve secrets
-     - Go to machine account settings > Access > Add Projects
-
-2. **Store Secrets in Bitwarden**:
-   - Create or use an existing Project in Bitwarden Secrets Manager
-   - Add your infrastructure secrets (e.g., Cloudflare API token, Portainer credentials)
-   - Note the Secret IDs (UUIDs) - you'll need these for OpenTofu configuration
-
-3. **Configure Access Token** (one-time setup):
-
-   Add the Bitwarden access token to your shell profile for persistent access:
-
-   ```bash
-   # Edit your shell profile
-   nano ~/.bashrc  # or ~/.zshrc if using zsh
-
-   # Add this line at the end
-   export TF_VAR_bws_access_token="your-bitwarden-access-token-here"
-
-   # Save and reload
-   source ~/.bashrc
-
-   # Verify it's set
-   echo $TF_VAR_bws_access_token
-   ```
-
-   This environment variable will be available to all OpenTofu commands and persists across terminal sessions.
-
-**Security Note**:
-- Your `~/.bashrc` file is only readable by your user account (not other users on the system)
-- The access token can be rotated in Bitwarden if needed - just update the export line in `~/.bashrc`
-- For shared systems, consider using more restrictive file permissions: `chmod 600 ~/.bashrc`
-
-#### Cloudflare
-
-**Configuration Steps**:
-
-1. Get your Cloudflare API token Secret ID from Bitwarden web interface
-
-2. Update the configuration file with your Secret ID:
-   ```bash
-   cd opentofu/cloudflare
-   nano tofu.auto.tfvars
-   ```
-
-   Replace the placeholder with your actual Secret ID:
-   ```hcl
-   cloudflare_api_token_secret_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-   ```
-
-3. Initialize and apply:
-   ```bash
-   # Download providers (first time only)
-   tofu init
-
-   # Preview changes
-   tofu plan
-
-   # Apply infrastructure changes
-   tofu apply
-   ```
-
-**How It Works**:
-- OpenTofu authenticates to Bitwarden using `TF_VAR_bws_access_token` from your environment
-- Fetches the Cloudflare API token using the Secret ID from `tofu.auto.tfvars`
-- Uses the token to authenticate with Cloudflare and manage infrastructure
-- The actual API token is never stored in any configuration files
-
-**Files**:
-- `providers.tofu` - Defines required providers (Cloudflare + Bitwarden)
-- `bitwarden.tofu` - Configures Bitwarden provider and fetches secrets
-- `variables.tofu` - Declares required variables
-- `tofu.auto.tfvars` - Contains Secret IDs (safe to commit to git)
-
-#### Portainer
-
-```bash
-cd opentofu/portainer
-tofu init
-tofu plan
-tofu apply
-```
-
-**Note**: Follow the same Bitwarden integration pattern as Cloudflare if credentials are needed.
 
 ## Security
 
-- Ansible Vault is configured for managing sensitive data
-- Vault password file is excluded from version control via `.gitignore`
-- Never commit unencrypted secrets to the repository
+- **Ansible Vault**: Automatic password loading from `ansible/vault/.vault_password`
+- **Bitwarden Access Token**: Environment variable only (`~/.bashrc`)
+- **No Hardcoded Secrets**: All credentials fetched at runtime
+- **Gitignored Files**: Vault passwords, state files, secrets.auto.tfvars
 
-## Contributing
+## Key Differences from Standard Setups
 
-1. Create feature branches for new infrastructure configurations
-2. Test playbooks and OpenTofu plans before applying
-3. Document any new infrastructure components
-4. Ensure secrets are properly encrypted before committing
+1. **Complete Bitwarden Integration**:
+   - All infrastructure credentials in Bitwarden (API tokens, IDs, IP addresses)
+   - Zero hardcoded values in repository
+   - Repository fully anonymized - no identifying information
+   - Dual secrets management: Ansible Vault for playbook secrets, Bitwarden for infrastructure
 
-## License
+2. **OpenTofu Bitwarden Integration**:
+   - Uses `maxlaverse/bitwarden` provider with embedded client
+   - No external CLI dependency for OpenTofu
+   - Direct server communication for better performance
+   - Fetches 5 secrets at runtime: API token, account ID, zone ID, 2 reverse proxy IPs
 
-This repository is for internal infrastructure management.
+3. **DNS Records in Code**:
+   - DNS records defined in `.tofu` files using `for_each` pattern
+   - IP addresses fetched from Bitwarden (local values, not hardcoded)
+   - All configuration version controlled and safe to commit
+   - Separation between internal (homelab) and external (VPS) services
+
+4. **Caddy + OpenTofu Integration**:
+   - Ansible installs Caddy web server
+   - OpenTofu manages Caddyfile configuration (future work)
+   - Unified DNS and reverse proxy management
+
+## Reference
+
+- [OpenTofu Documentation](https://opentofu.org/)
+- [Bitwarden Secrets Manager](https://bitwarden.com/products/secrets-manager/)
+- [maxlaverse/bitwarden Provider](https://registry.terraform.io/providers/maxlaverse/bitwarden/latest/docs)

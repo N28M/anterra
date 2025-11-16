@@ -8,7 +8,7 @@
     automatically_update: true
     enable_subnet_router: true
     enable_exit_node: true
-    # tailscale_auth_key should be defined in vault as a secure auth key
+    # tailscale_auth_key should be defined in ansible vault as a secure auth key
     # Generate one at: https://login.tailscale.com/admin/settings/keys
 
   tasks:

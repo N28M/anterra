@@ -15,6 +15,9 @@
 #     tls_skip_verify: true                        # HTTPS backend with self-signed cert
 
 reverse_proxy_records:
+  - domain: pve.ketwork.in
+    upstream: https://10.0.0.10:8006
+    tls_skip_verify: true
   - domain: ui.ketwork.in
     upstream: https://10.0.0.1:443
     tls_skip_verify: true

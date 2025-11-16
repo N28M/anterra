@@ -167,6 +167,6 @@
         - nmbd
 
 # Samba server configuration complete
-# Access shares from Windows/Linux/macOS using: \\10.0.1.164\downloads or \\10.0.1.164\media
-# On macOS/Linux: smb://10.0.1.164/downloads or smb://10.0.1.164/media
-# Authenticate with username: smbuser and the password stored in vault
+# Access shares from Windows/Linux/macOS using: \\<samba-server-ip>\downloads or \\<samba-server-ip>\media
+# On macOS/Linux: smb://<samba-server-ip>/downloads or smb://<samba-server-ip>/media
+# Authenticate with username: smbuser and the password from Bitwarden

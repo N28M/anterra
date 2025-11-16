@@ -300,8 +300,158 @@ locals {
    - OpenTofu manages DNS A records in Cloudflare
    - Clear separation: DNS records (OpenTofu) + reverse proxy config (Ansible) + TLS automation (Caddy)
 
+## Proxmox VM Setup for Hardware Passthrough
+
+This section covers setting up VMs with PCI hardware passthrough (e.g., GPU passthrough for Plex media server with Intel Quick Sync hardware transcoding).
+
+### Prerequisites
+
+#### Enable IOMMU on Proxmox Host
+
+1. **Edit GRUB configuration**:
+   ```bash
+   nano /etc/default/grub
+
+   # Modify the line:
+   GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt"
+
+   # Update GRUB
+   update-grub
+   ```
+
+2. **Load VFIO kernel modules**:
+   ```bash
+   echo "vfio" >> /etc/modules
+   echo "vfio_iommu_type1" >> /etc/modules
+   echo "vfio_pci" >> /etc/modules
+   echo "vfio_virqfd" >> /etc/modules
+
+   # Update initramfs
+   update-initramfs -u -k all
+   ```
+
+3. **Blacklist GPU drivers on host** (for GPU passthrough):
+   ```bash
+   nano /etc/modprobe.d/pve-blacklist.conf
+
+   # Add these lines:
+   blacklist i915
+   blacklist snd_hda_intel
+   blacklist snd_hda_codec_hdmi
+   ```
+
+4. **Reboot Proxmox host**:
+   ```bash
+   reboot
+   ```
+
+5. **Verify IOMMU is enabled**:
+   ```bash
+   dmesg | grep -e DMAR -e IOMMU
+   # Should show "DMAR: IOMMU enabled"
+
+   lspci -nn | grep VGA
+   # Note the PCI address (e.g., 00:02.0) and device ID (e.g., 8086:3e91)
+   ```
+
+### Creating a VM with GPU Passthrough (Plex Example)
+
+#### VM Configuration Settings
+
+**General**:
+- VM ID: Choose an ID (e.g., 1002)
+- Name: `mediacenter` (or your preferred name)
+- Start at boot: ✓
+
+**OS**:
+- ISO: Ubuntu Server 22.04 LTS or 24.04 LTS
+- Type: Linux
+- Version: 6.x - 2.6 Kernel
+
+**System**:
+- Machine: q35
+- BIOS: OVMF (UEFI)
+- Add EFI Disk: ✓
+- SCSI Controller: VirtIO SCSI Single
+- Qemu Agent: ✓
+
+**Disks**:
+- Bus/Device: SCSI 0
+- Storage: Your preferred storage
+- Disk size: 32-128 GB (64GB+ recommended for Plex metadata)
+- Cache: Write back
+- Discard: ✓ (if using SSD)
+- SSD emulation: ✓ (if storage is SSD)
+
+**CPU**:
+- Sockets: 1
+- Cores: 4+ (more is better for transcoding)
+- Type: **host** (critical for hardware transcoding performance)
+
+**Memory**:
+- Memory: 4096 MB minimum, 8192 MB recommended
+- Ballooning Device: ✓
+
+**Network**:
+- Bridge: vmbr0
+- Model: VirtIO (paravirtualized)
+
+**Graphics**:
+- Leave as Default during initial setup
+
+#### Installation Process
+
+1. **Create VM with standard settings** (without GPU passthrough initially)
+
+2. **Install Ubuntu Server**:
+   - Enable OpenSSH server during installation
+   - Note the IP address assigned
+   - Complete installation and reboot
+   - Test SSH access from control node
+   - Shutdown the VM
+
+3. **Add GPU passthrough configuration**:
+   ```bash
+   # Edit VM configuration file (replace 1002 with your VM ID)
+   nano /etc/pve/qemu-server/1002.conf
+
+   # Add these lines:
+   hostpci0: 0000:00:02.0,pcie=1,rombar=0
+   vga: none
+
+   # Verify CPU is set to host with hidden flag:
+   cpu: host,hidden=1,flags=+pcid
+   ```
+
+   **Parameters explained**:
+   - `hostpci0`: First PCI passthrough device
+   - `0000:00:02.0`: PCI address from lspci (adjust for your hardware)
+   - `pcie=1`: Present device as PCIe
+   - `rombar=0`: Disable ROM bar (required for Intel iGPU)
+   - `vga: none`: Disable virtual display
+   - `cpu: host,hidden=1`: Better GPU driver compatibility
+
+4. **Start VM and continue with Ansible configuration**
+
+#### Why Install First, Then Add GPU?
+
+Installing Ubuntu first with standard graphics, then adding GPU passthrough after:
+- Simplifies installation (can use Proxmox console)
+- Ensures SSH is configured before losing console access
+- Allows verification that base system works before adding complexity
+- Makes troubleshooting easier if issues arise
+
+### Post-Installation
+
+After GPU passthrough is configured:
+- Console access through Proxmox web UI will not work (vga: none)
+- All access must be via SSH
+- Continue configuration with Ansible playbooks
+- Verify GPU passthrough in VM: `lspci | grep VGA`
+
 ## Reference
 
 - [OpenTofu Documentation](https://opentofu.org/)
 - [Bitwarden Secrets Manager](https://bitwarden.com/products/secrets-manager/)
 - [maxlaverse/bitwarden Provider](https://registry.terraform.io/providers/maxlaverse/bitwarden/latest/docs)
+- [Proxmox PCI Passthrough](https://pve.proxmox.com/wiki/PCI_Passthrough)

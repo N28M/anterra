@@ -10,4 +10,7 @@ all:
         samba-share:
           ansible_host: "{{ samba_share_ip }}"
           ansible_user: root
+        mediacenter:
+          ansible_host: "{{ mediacenter_ip }}"
+          ansible_user: mediauser
 ...

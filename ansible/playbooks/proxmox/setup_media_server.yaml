@@ -6,7 +6,7 @@
   tags: always
   tasks:
     - name: Fetch mediauser password from Bitwarden
-      shell: bws secret get {{ mediacenter_password_uuid }} --access-token "{{ bws_access_token }}"
+      shell: bws secret get {{ mediacenter_password_uuid }} --access-token "{{ bws_access_token }}" --output json
       register: mediauser_password_result
       changed_when: false
       no_log: true
@@ -21,7 +21,7 @@
         - mediauser_password_result.stdout is defined
 
     - name: Fetch Samba password from Bitwarden
-      shell: bws secret get {{ samba_user_password_uuid }} --access-token "{{ bws_access_token }}"
+      shell: bws secret get {{ samba_user_password_uuid }} --access-token "{{ bws_access_token }}" --output json
       register: samba_password_result
       changed_when: false
       no_log: true
@@ -34,6 +34,16 @@
       when:
         - samba_user_password_uuid is defined
         - samba_password_result.stdout is defined
+
+    - name: Add passwords to mediacenter host
+      add_host:
+        name: mediacenter
+        mediacenter_password: "{{ mediacenter_password }}"
+        samba_share_password: "{{ samba_share_password }}"
+      no_log: true
+      when:
+        - mediacenter_password is defined
+        - samba_share_password is defined
 
 - name: Setup Plex Media Server with Intel Quick Sync Hardware Transcoding
   hosts: mediacenter

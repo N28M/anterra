@@ -12,6 +12,9 @@ locals {
     # Points to internal Caddy instance
     # proxied = false (internal IPs cannot use Cloudflare proxy)
     #----------------------------------------------------------------
+    "portainer" = {
+      content = local.homelab_reverse_proxy_ip
+    }
     "pve" = {
       content = local.homelab_reverse_proxy_ip
     }

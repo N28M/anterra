@@ -41,6 +41,13 @@
         - cloudflare_api_token_secret_id is defined
         - cloudflare_token_result.stdout is defined
 
+    - name: Add Cloudflare API token to caddy host
+      add_host:
+        name: caddy
+        cloudflare_api_token: "{{ cloudflare_api_token }}"
+      no_log: true
+      when: cloudflare_api_token is defined
+
 - name: Install and Configure Caddy with Cloudflare DNS Plugin
   hosts: caddy
   become: true

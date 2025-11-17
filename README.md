@@ -32,7 +32,7 @@ anterra/
 │   │   │   └── templates/
 │   │   │       └── caddy_reverse_proxy.j2
 │   │   └── proxmox/
-│   │       ├── setup_plex_server.yaml
+│   │       ├── setup_media_server.yaml
 │   │       └── setup_samba_server.yaml
 │   └── vault/.vault_password             # Vault password (gitignored)
 └── opentofu/

@@ -1,0 +1,4 @@
+---
+# Connection settings for docker host
+ansible_host: "{{ docker_ip }}"
+ansible_user: dockeruser

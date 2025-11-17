@@ -3,6 +3,9 @@
 # Internal Records - Handled by homelab Caddy instance (rpi)
 # -------------------------------------------------------------------------
 internal_reverse_proxy_records:
+  - domain: portainer.ketwork.in
+    upstream: "https://{{ docker_ip }}:9443"
+    tls_skip_verify: true
   - domain: pve.ketwork.in
     upstream: "https://{{ pve_ip }}:8006"
     tls_skip_verify: true

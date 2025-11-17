@@ -9,4 +9,4 @@ all:
       hosts:
         samba_share:
         mediacenter:
-...
+        docker:

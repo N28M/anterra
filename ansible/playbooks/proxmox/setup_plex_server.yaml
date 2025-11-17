@@ -1,4 +1,40 @@
 ---
+- name: Fetch Bitwarden Secrets
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: always
+  tasks:
+    - name: Fetch mediauser password from Bitwarden
+      shell: bws secret get {{ mediacenter_password_uuid }} --access-token "{{ bws_access_token }}"
+      register: mediauser_password_result
+      changed_when: false
+      no_log: true
+      when: mediacenter_password_uuid is defined
+
+    - name: Set mediauser password fact
+      set_fact:
+        mediacenter_password: "{{ (mediauser_password_result.stdout | from_json).value }}"
+      no_log: true
+      when:
+        - mediacenter_password_uuid is defined
+        - mediauser_password_result.stdout is defined
+
+    - name: Fetch Samba password from Bitwarden
+      shell: bws secret get {{ samba_user_password_uuid }} --access-token "{{ bws_access_token }}"
+      register: samba_password_result
+      changed_when: false
+      no_log: true
+      when: samba_user_password_uuid is defined
+
+    - name: Set Samba password fact
+      set_fact:
+        samba_share_password: "{{ (samba_password_result.stdout | from_json).value }}"
+      no_log: true
+      when:
+        - samba_user_password_uuid is defined
+        - samba_password_result.stdout is defined
+
 - name: Setup Plex Media Server with Intel Quick Sync Hardware Transcoding
   hosts: mediacenter
   become: true
@@ -6,41 +42,16 @@
 
   vars:
     plex_user: plex
-    # All UUIDs and credentials should be in vault:
-    # - mediacenter_password_uuid (Bitwarden secret UUID for SSH/sudo - same password)
-    # - samba_user_password_uuid (Bitwarden secret UUID)
-    # - bws_access_token (Bitwarden access token)
-    # - samba_share_ip (Samba server IP address)
-    # - mediacenter_ip (Mediacenter VM IP address)
 
   tasks:
-    - name: Fetch mediauser password from Bitwarden
-      shell: bws secret get {{ mediacenter_password_uuid }} --access-token "{{ bws_access_token }}"
-      register: mediauser_password_result
-      changed_when: false
-      no_log: true
-      delegate_to: localhost
-
-    - name: Parse mediauser password and set for SSH and sudo
+    - name: Set SSH and sudo credentials for mediacenter
       set_fact:
-        ansible_ssh_pass: "{{ (mediauser_password_result.stdout | from_json).value }}"
-        ansible_become_pass: "{{ (mediauser_password_result.stdout | from_json).value }}"
+        ansible_ssh_pass: "{{ mediacenter_password }}"
+        ansible_become_pass: "{{ mediacenter_password }}"
       no_log: true
 
     - name: Gather facts
       setup:
-
-    - name: Fetch Samba password from Bitwarden
-      shell: bws secret get {{ samba_user_password_uuid }} --access-token "{{ bws_access_token }}"
-      register: samba_password_result
-      changed_when: false
-      no_log: true
-      delegate_to: localhost
-
-    - name: Parse Samba password from Bitwarden response
-      set_fact:
-        samba_share_password: "{{ (samba_password_result.stdout | from_json).value }}"
-      no_log: true
 
     - name: Update apt cache
       apt:

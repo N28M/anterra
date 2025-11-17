@@ -1,6 +1,5 @@
 ---
-# Fetch Bitwarden secrets for VPS connection (always runs, even with --limit)
-- name: Fetch Bitwarden secrets for ovh_vps
+- name: Fetch Bitwarden Secrets
   hosts: localhost
   connection: local
   gather_facts: false
@@ -12,7 +11,6 @@
       no_log: true
       changed_when: false
       when: ovh_vps_ssh_guid is defined
-      delegate_to: localhost
 
     - name: Set OVH VPS SSH password fact
       set_fact:
@@ -27,6 +25,21 @@
         name: ovh_vps
         ovh_vps_ssh_password: "{{ ovh_vps_ssh_password }}"
       when: ovh_vps_ssh_password is defined
+
+    - name: Fetch Cloudflare API token from Bitwarden
+      shell: bws secret get "{{ cloudflare_api_token_secret_id }}" --access-token "{{ bws_access_token }}" --output json
+      register: cloudflare_token_result
+      no_log: true
+      changed_when: false
+      when: cloudflare_api_token_secret_id is defined
+
+    - name: Set Cloudflare API token fact
+      set_fact:
+        cloudflare_api_token: "{{ (cloudflare_token_result.stdout | from_json).value }}"
+      no_log: true
+      when:
+        - cloudflare_api_token_secret_id is defined
+        - cloudflare_token_result.stdout is defined
 
 - name: Install and Configure Caddy with Cloudflare DNS Plugin
   hosts: caddy
@@ -110,22 +123,6 @@
     - name: Display Cloudflare DNS plugin status
       debug:
         msg: "Cloudflare DNS plugin found: {{ caddy_cloudflare_check.stdout }}"
-
-    - name: Fetch Cloudflare API token from Bitwarden (run locally)
-      shell: bws secret get "{{ cloudflare_api_token_secret_id }}" --access-token "{{ bws_access_token }}" --output json
-      register: cloudflare_token_result_local
-      no_log: true
-      changed_when: false
-      when: cloudflare_api_token_secret_id is defined
-      delegate_to: localhost
-
-    - name: Parse Cloudflare token from Bitwarden response
-      set_fact:
-        cloudflare_api_token: "{{ (cloudflare_token_result_local.stdout | from_json).value }}"
-      no_log: true
-      when:
-        - cloudflare_api_token_secret_id is defined
-        - cloudflare_token_result_local.stdout is defined
 
     - name: Create Cloudflare token file for Caddy
       copy:

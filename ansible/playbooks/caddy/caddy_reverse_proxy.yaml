@@ -33,7 +33,7 @@
   become: true
 
   vars_files:
-    - "{{ inventory_dir }}/group_vars/all/secrets.yaml"
+    - ../../inventory/group_vars/all/secrets.yaml
     - caddy_records.yaml
 
   tasks:

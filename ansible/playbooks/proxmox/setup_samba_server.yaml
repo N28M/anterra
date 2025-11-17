@@ -1,4 +1,40 @@
 ---
+- name: Fetch Bitwarden Secrets
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: always
+  tasks:
+    - name: Fetch Samba SSH password from Bitwarden
+      shell: bws secret get {{ samba_ssh_password_uuid }} --access-token "{{ bws_access_token }}"
+      register: samba_ssh_password_result
+      changed_when: false
+      no_log: true
+      when: samba_ssh_password_uuid is defined
+
+    - name: Set Samba SSH password fact
+      set_fact:
+        samba_ssh_pass: "{{ (samba_ssh_password_result.stdout | from_json).value }}"
+      no_log: true
+      when:
+        - samba_ssh_password_uuid is defined
+        - samba_ssh_password_result.stdout is defined
+
+    - name: Fetch Samba user password from Bitwarden
+      shell: bws secret get {{ samba_user_password_uuid }} --access-token "{{ bws_access_token }}"
+      register: samba_user_password_result
+      changed_when: false
+      no_log: true
+      when: samba_user_password_uuid is defined
+
+    - name: Set Samba user password fact
+      set_fact:
+        samba_user_pass: "{{ (samba_user_password_result.stdout | from_json).value }}"
+      no_log: true
+      when:
+        - samba_user_password_uuid is defined
+        - samba_user_password_result.stdout is defined
+
 - name: Setup Samba File Server
   hosts: samba_share
   become: true
@@ -7,12 +43,7 @@
   vars:
     datastore_path: /mnt/datastore
     samba_user: smbuser
-    smbuser_password_secret_id: "{{ samba_user_password_uuid }}"
-    samba_ssh_password_secret_id: "{{ samba_ssh_password_uuid }}"
-    # bws_access_token should be defined in ansible vault for Bitwarden access
-    # samba_user_password_uuid and samba_share_ssh_password_uuid should be in vault
 
-    # Directory structure to create
     directories:
       - path: "{{ datastore_path }}/downloads"
         owner: "{{ samba_user }}"
@@ -36,16 +67,9 @@
         mode: '0775'
 
   tasks:
-    - name: Fetch SSH password from Bitwarden
-      shell: bws secret get {{ samba_ssh_password_secret_id }} --access-token "{{ bws_access_token }}"
-      register: ssh_password_result
-      changed_when: false
-      no_log: true
-      delegate_to: localhost
-
-    - name: Parse SSH password from Bitwarden response
+    - name: Set SSH credentials for samba_share
       set_fact:
-        ansible_ssh_pass: "{{ (ssh_password_result.stdout | from_json).value }}"
+        ansible_ssh_pass: "{{ samba_ssh_pass }}"
       no_log: true
 
     - name: Gather facts
@@ -82,23 +106,11 @@
         mode: "{{ item.mode }}"
       loop: "{{ directories }}"
 
-    - name: Fetch smbuser password from Bitwarden
-      shell: bws secret get {{ smbuser_password_secret_id }} --access-token "{{ bws_access_token }}"
-      register: smbuser_password_result
-      changed_when: false
-      no_log: true
-      delegate_to: localhost
-
-    - name: Parse smbuser password from Bitwarden response
-      set_fact:
-        smbuser_password: "{{ (smbuser_password_result.stdout | from_json).value }}"
-      no_log: true
-
     - name: Set Samba password for smbuser
       shell: |
-        printf '%s\n%s\n' "{{ smbuser_password }}" "{{ smbuser_password }}" | smbpasswd -a {{ samba_user }}
+        printf '%s\n%s\n' "{{ samba_user_pass }}" "{{ samba_user_pass }}" | smbpasswd -a {{ samba_user }}
         smbpasswd -e {{ samba_user }}
-      when: smbuser_password is defined
+      when: samba_user_pass is defined
       changed_when: false
       no_log: true
 

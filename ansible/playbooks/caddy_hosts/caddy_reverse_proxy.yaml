@@ -1,0 +1,68 @@
+---
+# Fetch Bitwarden secrets for VPS connection (always runs, even with --limit)
+- name: Fetch Bitwarden secrets for ovh_vps
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: always
+  tasks:
+    - name: Fetch OVH VPS SSH password from Bitwarden
+      shell: bws secret get "{{ ovh_vps_ssh_guid }}" --access-token "{{ bws_access_token }}" --output json
+      register: ovh_ssh_password_result
+      no_log: true
+      changed_when: false
+      when: ovh_vps_ssh_guid is defined
+      delegate_to: localhost
+
+    - name: Set OVH VPS SSH password fact
+      set_fact:
+        ovh_vps_ssh_password: "{{ (ovh_ssh_password_result.stdout | from_json).value }}"
+      no_log: true
+      when:
+        - ovh_vps_ssh_guid is defined
+        - ovh_ssh_password_result.stdout is defined
+
+    - name: Add ovh_vps_ssh_password to hostvars
+      add_host:
+        name: ovh_vps
+        ovh_vps_ssh_password: "{{ ovh_vps_ssh_password }}"
+      when: ovh_vps_ssh_password is defined
+
+- name: Configure Caddy Reverse Proxy Records
+  hosts: caddy_hosts
+  become: true
+
+  tasks:
+    # VPS-specific configuration
+    - name: Update nameserver in resolv.conf (VPS only)
+      ansible.builtin.lineinfile:
+        path: /etc/resolv.conf
+        regexp: '^nameserver'
+        line: 'nameserver 1.1.1.1'
+        state: present
+      when: inventory_hostname == 'ovh_vps'
+
+    # Render and insert reverse proxy configuration
+    - name: Render reverse proxy configuration from template
+      ansible.builtin.template:
+        src: templates/caddy_reverse_proxy.j2
+        dest: /tmp/caddy_reverse_proxy_block.txt
+      register: rendered_config
+
+    - name: Read rendered configuration
+      ansible.builtin.slurp:
+        src: /tmp/caddy_reverse_proxy_block.txt
+      register: rendered_content
+
+    - name: Insert reverse proxy configuration into Caddyfile
+      ansible.builtin.blockinfile:
+        path: /etc/caddy/Caddyfile
+        block: "{{ rendered_content.content | b64decode }}"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK FOR REVERSE PROXIES"
+      notify: Reload Caddy
+
+  handlers:
+    - name: Reload Caddy
+      ansible.builtin.systemd:
+        name: caddy
+        state: reloaded

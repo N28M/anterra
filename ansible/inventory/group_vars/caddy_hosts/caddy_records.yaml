@@ -1,0 +1,43 @@
+---
+# Caddy reverse proxy records for Caddy hosts
+# These records define how Caddy routes traffic to backend services
+#
+# Record fields:
+#   - domain: The domain name to reverse proxy
+#   - upstream: The backend service address (IP:port)
+#   - tls_skip_verify: (optional, default: false) Skip TLS verification for HTTPS upstreams
+#   - location: internal or external (determines which Caddy instance handles it)
+#   - extra_headers: (optional) Additional headers to set
+#
+# Examples:
+#   - domain: service.example.com
+#     upstream: 10.0.0.10:8080
+#     location: internal                           # Handled by internal Caddy (rpi)
+#   - domain: service.example.com
+#     upstream: https://10.0.0.10:443
+#     tls_skip_verify: true
+#     location: external                           # Handled by external Caddy (ovh_vps)
+
+# -------------------------------------------------------------------------
+# Internal Records - Handled by homelab Caddy instance (rpi)
+# -------------------------------------------------------------------------
+internal_reverse_proxy_records:
+  - domain: pve.ketwork.in
+    upstream: https://10.0.0.10:8006
+    tls_skip_verify: true
+  - domain: ui.ketwork.in
+    upstream: https://10.0.0.1:443
+    tls_skip_verify: true
+
+# -------------------------------------------------------------------------
+# External Records - Handled by VPS Caddy instance (ovh_vps)
+# DNS proxied via Cloudflare, traffic routed through Tailscale
+# -------------------------------------------------------------------------
+external_reverse_proxy_records:
+  # - domain: homeassistant.ketwork.in
+  #   upstream: 10.0.0.100:8123
+  #   extra_headers:
+  #     - "Host {host}"
+  #     - "X-Real-IP {remote_host}"
+  - domain: plex.ketwork.in
+    upstream: 10.0.3.99:32400

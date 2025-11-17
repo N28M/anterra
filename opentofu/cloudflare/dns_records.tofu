@@ -12,7 +12,10 @@ locals {
     # Points to internal Caddy instance
     # proxied = false (internal IPs cannot use Cloudflare proxy)
     #----------------------------------------------------------------
-    "test-int" = {
+    "pve" = {
+      content = local.homelab_reverse_proxy_ip
+    }
+    "ui" = {
       content = local.homelab_reverse_proxy_ip
     }
     #----------------------------------------------------------------
@@ -20,7 +23,7 @@ locals {
     # Points to VPS Caddy instance
     # proxied = true (enables Cloudflare DDoS protection, caching, etc.)
     #----------------------------------------------------------------
-    "test-ext" = {
+    "plex" = {
       content = local.vps_reverse_proxy_ip
       proxied = true
     }

@@ -1,11 +1,39 @@
 ---
+# Fetch Bitwarden secrets for VPS connection (always runs, even with --limit)
+- name: Fetch Bitwarden secrets for ovh_vps
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: always
+  tasks:
+    - name: Fetch OVH VPS SSH password from Bitwarden
+      shell: bws secret get "{{ ovh_vps_ssh_guid }}" --access-token "{{ bws_access_token }}" --output json
+      register: ovh_ssh_password_result
+      no_log: true
+      changed_when: false
+      when: ovh_vps_ssh_guid is defined
+      delegate_to: localhost
+
+    - name: Set OVH VPS SSH password fact
+      set_fact:
+        ovh_vps_ssh_password: "{{ (ovh_ssh_password_result.stdout | from_json).value }}"
+      no_log: true
+      when:
+        - ovh_vps_ssh_guid is defined
+        - ovh_ssh_password_result.stdout is defined
+
+    - name: Add ovh_vps_ssh_password to hostvars
+      add_host:
+        name: ovh_vps
+        ovh_vps_ssh_password: "{{ ovh_vps_ssh_password }}"
+      when: ovh_vps_ssh_password is defined
+
 - name: Install and Configure Caddy with Cloudflare DNS Plugin
-  hosts: rpi
+  hosts: caddy_hosts
   become: true
   gather_facts: true
 
   vars:
-    caddy_download_url: "https://caddyserver.com/api/download?os=linux&arch=arm64&p=github.com%2Fcaddy-dns%2Fcloudflare&idempotency=23757119970210"
     caddy_binary_path: "/usr/bin/caddy"
     caddy_config_dir: "/etc/caddy"
     caddy_data_dir: "/var/lib/caddy"
@@ -13,6 +41,13 @@
     caddy_cloudflare_token_path: "/etc/caddy/cloudflare_token"
     # cloudflare_api_token_secret_id should be defined in vault
     # bws_access_token should be defined in vault
+    # Map Ansible architecture to Caddy download architecture
+    caddy_arch_map:
+      x86_64: amd64
+      aarch64: arm64
+      armv7l: armv7
+    caddy_arch: "{{ caddy_arch_map[ansible_architecture] | default('amd64') }}"
+    caddy_download_url: "https://caddyserver.com/api/download?os=linux&arch={{ caddy_arch }}&p=github.com%2Fcaddy-dns%2Fcloudflare&idempotency=23757119970210"
 
   tasks:
     # Create caddy system group
@@ -83,19 +118,22 @@
       debug:
         msg: "Cloudflare DNS plugin found: {{ caddy_cloudflare_check.stdout }}"
 
-    # Fetch Cloudflare API token from Bitwarden Secrets Manager
-    - name: Fetch Cloudflare API token from Bitwarden
+    # Fetch Cloudflare API token from Bitwarden Secrets Manager (locally on controller)
+    - name: Fetch Cloudflare API token from Bitwarden (run locally)
       shell: bws secret get "{{ cloudflare_api_token_secret_id }}" --access-token "{{ bws_access_token }}" --output json
-      register: cloudflare_token_result
+      register: cloudflare_token_result_local
       no_log: true
       changed_when: false
       when: cloudflare_api_token_secret_id is defined
+      delegate_to: localhost
 
     - name: Parse Cloudflare token from Bitwarden response
       set_fact:
-        cloudflare_api_token: "{{ (cloudflare_token_result.stdout | from_json).value }}"
+        cloudflare_api_token: "{{ (cloudflare_token_result_local.stdout | from_json).value }}"
       no_log: true
-      when: cloudflare_api_token_secret_id is defined
+      when:
+        - cloudflare_api_token_secret_id is defined
+        - cloudflare_token_result_local.stdout is defined
 
     # Store Cloudflare token securely for Caddy to use
     - name: Create Cloudflare token file for Caddy
@@ -108,22 +146,29 @@
       no_log: true
       when: cloudflare_api_token_secret_id is defined
 
-    # Create minimal Caddyfile so service can start (OpenTofu will manage actual configuration)
-    - name: Create minimal Caddyfile placeholder
+    # Create minimal Caddyfile if it doesn't exist
+    - name: Create minimal Caddyfile
       copy:
-        content: |
-          # Caddyfile managed by OpenTofu
-          # This is a placeholder to allow the Caddy service to start
-          # OpenTofu will replace this file with actual reverse proxy configuration
-
-          {
-            # Global options
-          }
+        content: ""
         dest: "{{ caddy_caddyfile_path }}"
         owner: root
         group: root
         mode: '0644'
         force: false
+
+    # Add global TLS configuration block for Cloudflare DNS-01 challenge
+    - name: Configure Cloudflare DNS-01 ACME challenge
+      ansible.builtin.blockinfile:
+        path: "{{ caddy_caddyfile_path }}"
+        block: |
+          # Global configuration for TLS and ACME challenges
+          {
+            # Use Cloudflare DNS-01 challenge for automatic certificate management
+            acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+          }
+        marker: "# {mark} ANSIBLE MANAGED BLOCK FOR GLOBAL TLS"
+        insertbefore: "BEGIN"
+      notify: Reload Caddy
 
     # Create systemd service file
     - name: Create Caddy systemd service file
@@ -198,8 +243,15 @@
 
     # Configuration complete. Caddy is now installed and running.
     # Next steps:
-    # - Caddyfile configuration will be managed by OpenTofu
-    # - OpenTofu will manage both DNS records and reverse proxy configuration
+    # - Global TLS configuration uses Cloudflare DNS-01 challenge for automatic certificate management
+    # - Reverse proxy records are added by the 'caddy_reverse_proxy.yaml' playbook
+    # - Cloudflare DNS A records are managed by OpenTofu
     # - Cloudflare API token is securely stored at /etc/caddy/cloudflare_token
     # - View logs: journalctl -u caddy -f
     # - Check status: systemctl status caddy
+
+  handlers:
+    - name: Reload Caddy
+      ansible.builtin.systemd:
+        name: caddy
+        state: reloaded

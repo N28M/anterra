@@ -1,0 +1,58 @@
+{% if inventory_hostname == 'rpi' %}
+# -----------------------------------------------------------
+# Internal Records - Handled by homelab Caddy (rpi)
+# -----------------------------------------------------------
+{% for record in internal_reverse_proxy_records %}
+{{ record.domain }} {
+{% if record.extra_headers is defined %}
+  reverse_proxy {{ record.upstream }} {
+{% for header in record.extra_headers %}
+    header_up {{ header }}
+{% endfor %}
+{% if record.tls_skip_verify | default(false) %}
+    transport http {
+      tls_insecure_skip_verify
+    }
+{% endif %}
+  }
+{% elif record.tls_skip_verify | default(false) %}
+  reverse_proxy {{ record.upstream }} {
+    transport http {
+      tls_insecure_skip_verify
+    }
+  }
+{% else %}
+  reverse_proxy {{ record.upstream }}
+{% endif %}
+}
+{% endfor %}
+{% endif %}
+{% if inventory_hostname == 'ovh_vps' %}
+# -----------------------------------------------------------
+# External Records - Handled by VPS Caddy (ovh_vps)
+# -----------------------------------------------------------
+{% for record in external_reverse_proxy_records %}
+{{ record.domain }} {
+{% if record.extra_headers is defined %}
+  reverse_proxy {{ record.upstream }} {
+{% for header in record.extra_headers %}
+    header_up {{ header }}
+{% endfor %}
+{% if record.tls_skip_verify | default(false) %}
+    transport http {
+      tls_insecure_skip_verify
+    }
+{% endif %}
+  }
+{% elif record.tls_skip_verify | default(false) %}
+  reverse_proxy {{ record.upstream }} {
+    transport http {
+      tls_insecure_skip_verify
+    }
+  }
+{% else %}
+  reverse_proxy {{ record.upstream }}
+{% endif %}
+}
+{% endfor %}
+{% endif %}

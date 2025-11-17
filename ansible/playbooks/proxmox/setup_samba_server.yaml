@@ -1,0 +1,172 @@
+---
+- name: Setup Samba File Server
+  hosts: samba-share
+  become: true
+  gather_facts: false
+
+  vars:
+    datastore_path: /mnt/datastore
+    samba_user: smbuser
+    smbuser_password_secret_id: "{{ samba_user_password_uuid }}"
+    samba_ssh_password_secret_id: "{{ samba_ssh_password_uuid }}"
+    # bws_access_token should be defined in ansible vault for Bitwarden access
+    # samba_user_password_uuid and samba_share_ssh_password_uuid should be in vault
+
+    # Directory structure to create
+    directories:
+      - path: "{{ datastore_path }}/downloads"
+        owner: "{{ samba_user }}"
+        group: "{{ samba_user }}"
+        mode: '0775'
+      - path: "{{ datastore_path }}/media"
+        owner: "{{ samba_user }}"
+        group: "{{ samba_user }}"
+        mode: '0775'
+      - path: "{{ datastore_path }}/media/movies"
+        owner: "{{ samba_user }}"
+        group: "{{ samba_user }}"
+        mode: '0775'
+      - path: "{{ datastore_path }}/media/tv"
+        owner: "{{ samba_user }}"
+        group: "{{ samba_user }}"
+        mode: '0775'
+      - path: "{{ datastore_path }}/media/music"
+        owner: "{{ samba_user }}"
+        group: "{{ samba_user }}"
+        mode: '0775'
+
+  tasks:
+    # Fetch SSH password from Bitwarden for authentication
+    # This runs locally on the control node (delegate_to: localhost)
+    - name: Fetch SSH password from Bitwarden
+      shell: bws secret get {{ samba_ssh_password_secret_id }} --access-token "{{ bws_access_token }}"
+      register: ssh_password_result
+      changed_when: false
+      no_log: true
+      delegate_to: localhost
+
+    - name: Parse SSH password from Bitwarden response
+      set_fact:
+        ansible_ssh_pass: "{{ (ssh_password_result.stdout | from_json).value }}"
+      no_log: true
+
+    # Now gather facts after we have authentication credentials
+    - name: Gather facts
+      setup:
+
+    # Install Samba packages
+    - name: Update apt cache
+      apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install Samba and dependencies
+      apt:
+        name:
+          - samba
+          - samba-common
+          - samba-common-bin
+        state: present
+
+    # Create smbuser system user for accessing shares
+    # User is created without a login shell for security
+    - name: Create smbuser system user
+      user:
+        name: "{{ samba_user }}"
+        comment: "Samba share user"
+        shell: /usr/sbin/nologin
+        create_home: false
+        system: false
+        state: present
+
+    # Create directory structure on the datastore
+    - name: Create directory structure
+      file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: "{{ item.owner }}"
+        group: "{{ item.group }}"
+        mode: "{{ item.mode }}"
+      loop: "{{ directories }}"
+
+    # Fetch Samba user password from Bitwarden Secrets Manager
+    # This runs locally on the control node (delegate_to: localhost)
+    - name: Fetch smbuser password from Bitwarden
+      shell: bws secret get {{ smbuser_password_secret_id }} --access-token "{{ bws_access_token }}"
+      register: smbuser_password_result
+      changed_when: false
+      no_log: true
+      delegate_to: localhost
+
+    - name: Parse smbuser password from Bitwarden response
+      set_fact:
+        smbuser_password: "{{ (smbuser_password_result.stdout | from_json).value }}"
+      no_log: true
+
+    # Set Samba password for smbuser
+    # Uses shell command as there's no native Ansible module for this
+    # Uses printf to properly handle special characters in password
+    - name: Set Samba password for smbuser
+      shell: |
+        printf '%s\n%s\n' "{{ smbuser_password }}" "{{ smbuser_password }}" | smbpasswd -a {{ samba_user }}
+        smbpasswd -e {{ samba_user }}
+      when: smbuser_password is defined
+      changed_when: false
+      no_log: true
+
+    # Configure Samba shares in smb.conf
+    # This configuration provides two shares: downloads and media
+    # Both shares have full read/write access for smbuser
+    - name: Configure Samba shares
+      blockinfile:
+        path: /etc/samba/smb.conf
+        block: |
+          [downloads]
+             comment = Downloads Share
+             path = {{ datastore_path }}/downloads
+             browseable = yes
+             writable = yes
+             valid users = {{ samba_user }}
+             create mask = 0664
+             directory mask = 0775
+             force user = {{ samba_user }}
+             force group = {{ samba_user }}
+
+          [media]
+             comment = Media Share (Movies, TV, Music)
+             path = {{ datastore_path }}/media
+             browseable = yes
+             writable = yes
+             valid users = {{ samba_user }}
+             create mask = 0664
+             directory mask = 0775
+             force user = {{ samba_user }}
+             force group = {{ samba_user }}
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - Datastore Shares"
+        validate: 'testparm -s %s'
+      notify: restart samba
+
+    # Ensure Samba service is enabled and running
+    - name: Enable and start Samba services
+      systemd:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      loop:
+        - smbd
+        - nmbd
+
+  handlers:
+    # Handler to restart Samba when configuration changes
+    - name: restart samba
+      systemd:
+        name: "{{ item }}"
+        state: restarted
+      loop:
+        - smbd
+        - nmbd
+
+# Samba server configuration complete
+# Access shares from Windows/Linux/macOS using: \\<samba-server-ip>\downloads or \\<samba-server-ip>\media
+# On macOS/Linux: smb://<samba-server-ip>/downloads or smb://<samba-server-ip>/media
+# Authenticate with username: smbuser and the password from Bitwarden

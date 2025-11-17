@@ -1,0 +1,66 @@
+---
+# Fetch Bitwarden secrets for VPS connection (always runs, even with --limit)
+- name: Fetch Bitwarden secrets for ovh_vps
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: always
+  tasks:
+    - name: Fetch OVH VPS SSH password from Bitwarden
+      shell: bws secret get "{{ ovh_vps_ssh_guid }}" --access-token "{{ bws_access_token }}" --output json
+      register: ovh_ssh_password_result
+      no_log: true
+      changed_when: false
+      when: ovh_vps_ssh_guid is defined
+      delegate_to: localhost
+
+    - name: Set OVH VPS SSH password fact
+      set_fact:
+        ovh_vps_ssh_password: "{{ (ovh_ssh_password_result.stdout | from_json).value }}"
+      no_log: true
+      when:
+        - ovh_vps_ssh_guid is defined
+        - ovh_ssh_password_result.stdout is defined
+
+    - name: Add ovh_vps_ssh_password to hostvars
+      add_host:
+        name: ovh_vps
+        ovh_vps_ssh_password: "{{ ovh_vps_ssh_password }}"
+      when: ovh_vps_ssh_password is defined
+
+# Playbook to reset Caddyfile to a clean state
+# This removes the old Caddyfile and prepares for fresh configuration
+- name: Reset Caddyfile on Caddy hosts
+  hosts: caddy_hosts
+  become: true
+
+  tasks:
+    - name: Backup existing Caddyfile
+      copy:
+        src: /etc/caddy/Caddyfile
+        dest: "/etc/caddy/Caddyfile.backup.{{ ansible_date_time.iso8601_basic_short }}"
+        remote_src: true
+      ignore_errors: true
+
+    - name: Clear Caddyfile
+      copy:
+        content: ""
+        dest: /etc/caddy/Caddyfile
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Stop Caddy service temporarily
+      systemd:
+        name: caddy
+        state: stopped
+
+    - name: Display next steps
+      debug:
+        msg: |
+          Caddyfile has been cleared on {{ inventory_hostname }}.
+          Backup saved to /etc/caddy/Caddyfile.backup.*
+
+          Next steps:
+          1. Run: ansible-playbook -i inventory/hosts.yaml playbooks/common/install_caddy.yaml
+          2. Run: ansible-playbook -i inventory/hosts.yaml playbooks/caddy_hosts/caddy_reverse_proxy.yaml

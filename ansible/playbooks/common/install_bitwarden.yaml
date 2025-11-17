@@ -1,18 +1,22 @@
 ---
 - name: Install and Configure Bitwarden Secrets Manager CLI
-  hosts: rpi
+  hosts: all
   become: true
   gather_facts: true
 
   vars:
     bws_version: "1.0.0"
-    bws_arch: "aarch64-unknown-linux-gnu"
-    bws_download_url: "https://github.com/bitwarden/sdk-sm/releases/download/bws-v{{ bws_version }}/bws-{{ bws_arch }}-{{ bws_version }}.zip"
     bws_install_dir: "/opt/bitwarden"
     bws_binary_path: "{{ bws_install_dir }}/bws"
     bws_symlink_path: "/usr/local/bin/bws"
     # bws_access_token should be defined in vault secrets
     # Generate one in Bitwarden Secrets Manager: Settings > Machine Accounts
+    # Map Ansible architecture to Bitwarden release architecture
+    bws_arch_map:
+      x86_64: "x86_64-unknown-linux-gnu"
+      aarch64: "aarch64-unknown-linux-gnu"
+    bws_arch: "{{ bws_arch_map[ansible_architecture] | default('x86_64-unknown-linux-gnu') }}"
+    bws_download_url: "https://github.com/bitwarden/sdk-sm/releases/download/bws-v{{ bws_version }}/bws-{{ bws_arch }}-{{ bws_version }}.zip"
 
   tasks:
     # Install unzip if not already present (required to extract the binary)

@@ -1,0 +1,4 @@
+---
+# Connection settings for mediacenter host
+ansible_host: "{{ mediacenter_ip }}"
+ansible_user: mediauser

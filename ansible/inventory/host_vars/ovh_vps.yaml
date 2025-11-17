@@ -1,0 +1,8 @@
+---
+# Connection settings for ovh_vps host
+# Note: SSH password is fetched from Bitwarden Secrets Manager at runtime
+# ovh_vps_ssh_guid should be defined in vault (Bitwarden secret UUID)
+# ovh_vps_hostname should be defined in vault (hostname or IP)
+ansible_host: "{{ ovh_vps_hostname }}"
+ansible_user: ubuntu
+ansible_ssh_pass: "{{ ovh_vps_ssh_password | default(omit) }}"

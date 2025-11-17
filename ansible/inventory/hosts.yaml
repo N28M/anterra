@@ -1,6 +1,12 @@
 ---
 all:
-  hosts:
-    rpi:
-      ansible_connection: local
+  children:
+    caddy_hosts:
+      hosts:
+        rpi:
+        ovh_vps:
+    proxmox:
+      hosts:
+        samba-share:
+        mediacenter:
 ...

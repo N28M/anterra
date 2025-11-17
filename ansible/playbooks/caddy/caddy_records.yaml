@@ -4,10 +4,10 @@
 # -------------------------------------------------------------------------
 internal_reverse_proxy_records:
   - domain: pve.ketwork.in
-    upstream: https://10.0.0.10:8006
+    upstream: "https://{{ pve_ip }}:8006"
     tls_skip_verify: true
   - domain: ui.ketwork.in
-    upstream: https://10.0.0.1:443
+    upstream: "https://{{ ui_ip }}:443"
     tls_skip_verify: true
 
 # -------------------------------------------------------------------------
@@ -16,9 +16,9 @@ internal_reverse_proxy_records:
 # -------------------------------------------------------------------------
 external_reverse_proxy_records:
   # - domain: homeassistant.ketwork.in
-  #   upstream: 10.0.0.100:8123
+  #   upstream: "{{ homelab_ip }}:8123"
   #   extra_headers:
   #     - "Host {host}"
   #     - "X-Real-IP {remote_host}"
   - domain: plex.ketwork.in
-    upstream: 10.0.3.99:32400
+    upstream: "{{ plex_ip }}:32400"

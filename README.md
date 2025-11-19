@@ -11,6 +11,303 @@ This repository implements a dual-tool IaC approach:
 
 **Note on Proxmox**: Proxmox VE cluster is managed manually via the web UI. Ansible playbooks handle VM configuration after manual creation. See [Proxmox VM Setup](#proxmox-vm-setup-for-hardware-passthrough) for hardware passthrough instructions (used for media server with GPU transcoding support).
 
+## Architecture
+
+This project is designed with a clear separation of concerns, leveraging the strengths of each tool:
+
+- **OpenTofu for Infrastructure Provisioning**:
+  - **Cloudflare**: Manages DNS records. All records are defined in `opentofu/cloudflare/dns_records.tofu` using a `for_each` loop, with IP addresses fetched from Bitwarden at runtime.
+  - **Portainer**: Manages container stacks. Stacks are defined as Docker Compose templates in `opentofu/portainer/compose-files/` and deployed via `portainer_stack` resources in `opentofu/portainer/stacks.tofu`.
+
+- **Ansible for Configuration Management**:
+  - **System-level configuration**: Installs and configures software on virtual machines, including Docker, Caddy, and Tailscale.
+  - **Caddy reverse proxy**: Manages the Caddyfile configuration, including generating reverse proxy records from a Jinja2 template and a YAML data file.
+
+- **Bitwarden for Secrets Management**:
+  - **Centralized secrets**: All secrets, including API tokens, credentials, and IP addresses, are stored in Bitwarden Secrets Manager.
+  - **Runtime secret retrieval**: Both OpenTofu and Ansible are configured to fetch secrets from Bitwarden at runtime, so no secrets are ever stored in the repository.
+
+## Getting Started
+
+This guide will walk you through the initial setup of your Anterra homelab environment.
+
+### 1. Prerequisites
+
+Ensure you have the following software installed on your control node (the machine you'll run Ansible and OpenTofu from):
+
+- **Ansible**: Recommended installation via `pipx`.
+  ```bash
+  pipx install --include-deps ansible
+  ```
+- **OpenTofu**: Follow the [official installation guide](https://opentofu.org/docs/intro/install/) for your operating system.
+- **Bitwarden Account**: You'll need a Bitwarden account with access to the Secrets Manager.
+
+### 2. Clone the Repository
+
+Clone this repository to your local machine:
+
+```bash
+git clone <repository-url>
+cd anterra
+```
+
+### 3. Configure Ansible Vault
+
+Ansible Vault is used to encrypt sensitive data within the repository.
+
+1.  **Create the Vault Password File**:
+    The `ansible.cfg` file is pre-configured to look for the vault password at `ansible/vault/.vault_password`. Create this file and add your desired vault password to it.
+
+    ```bash
+    mkdir -p ansible/vault
+    read -sp "Enter your Ansible Vault password: " vault_password && echo $vault_password > ansible/vault/.vault_password
+    echo "" # Add a newline for clarity
+    ```
+
+    **Note**: This file is included in `.gitignore` and should never be committed to the repository.
+
+2.  **Create and Encrypt the Secrets File**:
+    The main secrets file is `ansible/inventory/group_vars/all/secrets.yaml`. Create this file and add any initial secrets you need. For more details, see the [Ansible Vault Secrets (`secrets.yaml`)](#ansible-vault-secrets-secretsyaml) section.
+
+    Encrypt the file using your vault password:
+    ```bash
+    ansible-vault encrypt ansible/inventory/group_vars/all/secrets.yaml
+    ```
+
+### 4. Set Up Bitwarden Secrets Manager
+
+1.  **Create a Machine Account**:
+    - In your Bitwarden web vault, go to **Settings** > **Machine Accounts**.
+    - Click **Add machine account** and give it a descriptive name (e.g., `anterra-automation`).
+    - After creation, you will be shown a **Client ID** and **Client Secret**. **Copy these immediately**, as they will not be shown again. You will use these to create an access token.
+
+2.  **Generate an Access Token**:
+    You can generate an access token using the `bws` CLI or by making a direct API call. The token is what OpenTofu and Ansible will use to authenticate.
+
+3.  **Grant Access to Projects**:
+    - Go to the **Projects** tab for your newly created machine account.
+    - Grant it access to the Bitwarden Projects that contain the secrets required for this repository (e.g., Cloudflare API token, Portainer API key).
+
+4.  **Store Secrets**:
+    Ensure all necessary secrets are stored in your Bitwarden vault and organized into projects that the machine account can access. You will need the **Secret ID** (a UUID) for each secret to configure OpenTofu and Ansible.
+
+### 5. Configure Environment Variables
+
+OpenTofu requires the Bitwarden access token to be set as an environment variable. Add the following to your `~/.bashrc`, `~/.zshrc`, or equivalent shell profile file:
+
+```bash
+# Bitwarden Secrets Manager Access Token for OpenTofu
+export TF_VAR_bws_access_token="your-bws-access-token-here"
+```
+
+Reload your shell for the changes to take effect:
+```bash
+source ~/.bashrc
+```
+
+### 6. Initial Deployment
+
+With the setup complete, you can now run the initial Ansible playbooks to provision your VMs and then run OpenTofu to configure your infrastructure.
+
+1.  **Provision VMs**: Follow the [Proxmox VM Setup](#proxmox-vm-setup-for-hardware-passthrough) guide to create your virtual machines.
+2.  **Run Ansible Playbooks**:
+    Start by setting up your Docker server, which will host Portainer and other services.
+    ```bash
+    # Ensure your inventory/hosts.yaml is configured with the correct IP addresses
+    ansible-playbook -i ansible/inventory/hosts.yaml ansible/playbooks/proxmox/setup_docker_server.yaml
+    ```
+3.  **Run OpenTofu**:
+    Apply the OpenTofu configuration to set up Cloudflare DNS and deploy your Portainer stacks.
+    ```bash
+    cd opentofu/cloudflare
+    tofu init
+    tofu apply
+
+    cd ../portainer
+    tofu init
+    tofu apply
+    ```
+
+You are now ready to manage your homelab using IaC!
+
+## Workflow: Adding a New Service
+
+This workflow outlines the steps to add a new service to your homelab, from DNS configuration to reverse proxy setup.
+
+### 1. Add DNS Record in OpenTofu
+
+First, define a DNS A record for your new service in the Cloudflare module.
+
+1.  **Open the DNS records file**:
+    `opentofu/cloudflare/dns_records.tofu`
+
+2.  **Add a new entry to the `a_records` map**:
+    ```hcl
+    locals {
+      a_records = {
+        # ... existing records
+        "new-service" = {
+          content = local.homelab_reverse_proxy_ip
+        }
+      }
+    }
+    ```
+    - The key (`"new-service"`) will be the subdomain.
+    - `content` should be the IP address of your reverse proxy, fetched from Bitwarden via `local.homelab_reverse_proxy_ip`.
+    - Set `proxied = true` if the service should be routed through Cloudflare's proxy (for external services).
+
+3.  **Apply the changes**:
+    ```bash
+    cd opentofu/cloudflare
+    tofu apply
+    ```
+
+### 2. (Optional) Deploy Container Stack in Portainer
+
+If your new service is a Docker container, add it to the Portainer OpenTofu module.
+
+1.  **Create a Docker Compose template**:
+    - Create a new file in `opentofu/portainer/compose-files/` named `new-service.yaml.tpl`.
+    - Use template variables like `${docker_user_puid}`, `${docker_user_pgid}`, `${docker_timezone}`, and `${docker_config_path}` for portability.
+
+    **Example `watchtower.yaml.tpl`**:
+    ```yaml
+    version: '3.7'
+    services:
+      watchtower:
+        image: containrrr/watchtower:latest
+        container_name: watchtower
+        restart: unless-stopped
+        environment:
+          - TZ=${docker_timezone}
+          - WATCHTOWER_CLEANUP=true
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+    ```
+
+2.  **Define the stack in `stacks.tofu`**:
+    - Open `opentofu/portainer/stacks.tofu`.
+    - Add a new `portainer_stack` resource.
+
+    ```hcl
+    resource "portainer_stack" "new_service" {
+      endpoint_id = var.portainer_endpoint_id
+      name        = "New Service"
+      repository = {
+        url = "https://github.com/your-repo/anterra" # Or your fork
+        path = "opentofu/portainer/compose-files/new-service.yaml"
+        # Add git credentials if needed
+      }
+      # Or use template_file to render a local compose file
+      # content = templatefile("${path.module}/compose-files/new-service.yaml.tpl", { ... })
+    }
+    ```
+    **Finding the `portainer_endpoint_id`**:
+    - In the Portainer UI, navigate to **Endpoints**.
+    - The ID is the number shown in the "ID" column for your desired endpoint.
+
+3.  **Apply the changes**:
+    ```bash
+    cd opentofu/portainer
+    tofu apply
+    ```
+
+### 3. Configure Caddy Reverse Proxy
+
+Finally, configure Caddy to route traffic to your new service.
+
+1.  **Edit the Caddy records file**:
+    Open `ansible/playbooks/caddy/caddy_records.yaml`.
+
+2.  **Add a new reverse proxy record**:
+    ```yaml
+    reverse_proxy_records:
+      # ... existing records
+      - domain: new-service.your-domain.com
+        upstream: 192.168.1.100:8080
+    ```
+    - `domain`: The fully qualified domain name (FQDN).
+    - `upstream`: The IP address and port of the service.
+    - Add `tls_skip_verify: true` if the upstream service uses a self-signed certificate.
+
+3.  **Run the Caddy playbook**:
+    ```bash
+    ansible-playbook -i ansible/inventory/hosts.yaml ansible/playbooks/caddy/caddy_reverse_proxy.yaml
+    ```
+
+Caddy will automatically fetch a TLS certificate for the new domain and begin proxying traffic. Your new service is now live!
+
+## Available Playbooks
+
+This section details the Ansible playbooks available in this repository.
+
+### Common Playbooks (`playbooks/common/`)
+
+These playbooks are intended to be run on all or most of your VMs.
+
+-   **`install_caddy.yaml`**: Installs and configures Caddy as a reverse proxy. Fetches the Cloudflare API token from Bitwarden for DNS-01 ACME challenges.
+-   **`install_bitwarden.yaml`**: Installs the Bitwarden Secrets Manager CLI (`bws`).
+-   **`install_opentofu.yaml`**: Installs OpenTofu.
+-   **`install_tailscale.yaml`**: Installs and configures Tailscale for secure networking.
+
+### Caddy Playbooks (`playbooks/caddy/`)
+
+-   **`caddy_reverse_proxy.yaml`**: Configures Caddy reverse proxy records based on the contents of `caddy_records.yaml`.
+-   **`reset_caddyfile.yaml`**: Resets the Caddyfile to a minimal configuration.
+
+### Gluetun Playbook (`playbooks/gluetun/`)
+
+-   **`configure_airvpn_certificates.yaml`**: Deploys AirVPN certificates to the Docker host for the Gluetun container.
+
+### Proxmox VM Playbooks (`playbooks/proxmox/`)
+
+These playbooks are designed for setting up specific types of Proxmox VMs.
+
+-   **`setup_docker_server.yaml`**:
+    -   Installs Docker and Docker Compose.
+    -   Creates a `dockeruser` and sets up directories (`/mnt/docker/{appdata,config,media,downloads}`).
+    -   Installs and configures Portainer as a Docker container.
+
+-   **`setup_media_server.yaml`**:
+    -   Sets up a media server, including installing any necessary software.
+    -   *Note: This playbook is likely intended to be run on a VM with GPU passthrough for hardware transcoding.*
+
+-   **`setup_samba_server.yaml`**:
+    -   Installs and configures a Samba server for network file sharing.
+    -   Creates a `samba` user and group.
+    -   Sets up two shares:
+        -   **`Public`**: A guest-accessible share for general file sharing.
+        -   **`Private`**: A secured share accessible only by the `samba` user.
+    -   The Samba user's password should be stored in Bitwarden and configured in `group_vars/all/secrets.yaml`.
+
+## Configuration Details
+
+### `ansible.cfg`
+
+The `ansible.cfg` file is the main configuration file for Ansible. This repository's `ansible.cfg` is configured to automatically use the Ansible Vault password file, so you don't need to enter it manually for each command.
+
+```ini
+[defaults]
+inventory = inventory/
+vault_password_file = vault/.vault_password
+```
+
+### Ansible Vault Secrets (`secrets.yaml`)
+
+The `ansible/inventory/group_vars/all/secrets.yaml` file is where you should store secrets that are used by Ansible playbooks. This file is encrypted with Ansible Vault.
+
+**Example structure**:
+```yaml
+# Bitwarden Secret IDs (UUIDs)
+# These are used to fetch the actual secrets from Bitwarden
+cloudflare_api_token_secret_id: "your-cloudflare-api-token-secret-id"
+docker_ssh_password_uuid: "your-docker-ssh-password-secret-id"
+samba_password_secret_id: "your-samba-password-secret-id"
+
+# Other Ansible-specific secrets
+tailscale_auth_key: "your-tailscale-auth-key"
+```
+
 ## Project Structure
 
 ```
@@ -61,362 +358,12 @@ anterra/
             └── watchtower.yaml.tpl       # Container stack templates
 ```
 
-## Prerequisites
-
-- **ansible** (installed via pipx)
-- **opentofu**
-- **Bitwarden Secrets Manager** account with machine account configured
-
-## Secrets Management Architecture
-
-### Ansible Vault
-- Used for: Ansible-specific secrets, short-lived credentials (e.g., Tailscale auth keys)
-- Password file: `ansible/vault/.vault_password` (auto-loaded, gitignored)
-- Encrypted file: `ansible/inventory/group_vars/all/secrets.yaml`
-
-### Bitwarden Secrets Manager
-- Used for: Cross-tool secrets, API tokens, long-lived credentials
-- Integration: Both Ansible playbooks and OpenTofu configurations
-- Provider: `maxlaverse/bitwarden` with embedded client (no CLI dependency)
-
-## Bitwarden + OpenTofu Integration
-
-This setup uniquely integrates Bitwarden Secrets Manager directly into OpenTofu using the `maxlaverse/bitwarden` provider with embedded client mode.
-
-### Initial Setup (One-time)
-
-1. **Create Machine Account in Bitwarden**:
-   - Navigate to Settings > Machine Accounts
-   - Generate access token
-   - **CRITICAL**: Grant machine account access to Projects containing secrets
-
-2. **Store Secrets in Bitwarden**:
-   - Organize secrets within Projects
-   - Note Secret IDs (UUIDs) for OpenTofu configuration
-
-3. **Configure Access Token**:
-   ```bash
-   # Add to ~/.bashrc (or ~/.zshrc)
-   export TF_VAR_bws_access_token="your-access-token-here"
-
-   # Reload shell
-   source ~/.bashrc
-   ```
-
-### How It Works
-
-**Authentication Flow**:
-1. OpenTofu reads `TF_VAR_bws_access_token` from environment
-2. Connects to Bitwarden via embedded client (no external CLI)
-3. Fetches secrets using Secret IDs from `tofu.auto.tfvars`
-4. Uses retrieved credentials to authenticate with infrastructure providers
-
-**Key Files**:
-- `providers.tofu`: Defines Cloudflare + Bitwarden providers
-- `bitwarden.tofu`: Configures Bitwarden provider, fetches secrets via data sources
-- `variables.tofu`: Variable declarations
-- `tofu.auto.tfvars`: Secret IDs and zone IDs (safe to commit)
-- `dns_records.tofu`: DNS A records defined in code (safe to commit)
-
-**What Gets Committed**:
-- Secret IDs (UUIDs) - just identifiers
-- DNS records in code
-- All `.tofu` configuration files
-- NOT: Access tokens (environment variable only)
-- NOT: Actual secret values (fetched at runtime)
-
-## Cloudflare DNS Management
-
-DNS records are defined in code using a `for_each` pattern in `opentofu/cloudflare/dns_records.tofu`:
-
-```hcl
-locals {
-  a_records = {
-    "subdomain" = {
-      content = "192.0.2.1"
-      proxied = true   # Cloudflare proxy (orange cloud)
-      ttl     = 1      # Auto
-    }
-  }
-}
-```
-
-This approach allows:
-- Version-controlled infrastructure
-- No secrets in configuration files
-- Dynamic record creation from a map structure
-
-## Available Playbooks
-
-### OpenTofu Installation
-**File**: `playbooks/common/install_opentofu.yaml`
-
-Installs OpenTofu via official installer script using system package manager (apt).
-
-### Tailscale VPN
-**File**: `playbooks/common/install_tailscale.yaml`
-
-Configures Tailscale with:
-- Subnet routing with automatic IP forwarding
-- Exit node functionality
-- UDP GRO forwarding optimization
-
-**Key Variables** (in Ansible Vault):
-- `tailscale_auth_key`: Auth key from Tailscale admin console
-- `tailscale_subnet_routes`: Comma-separated subnet routes (optional)
-
-**Post-Install**: Approve routes and exit node in Tailscale admin console.
-
-**Note**: Auth keys stored in Ansible Vault (not Bitwarden) because they're short-lived and only used once during initial connection.
-
-### Bitwarden Secrets Manager CLI
-**File**: `playbooks/common/install_bitwarden.yaml`
-
-Installs native ARM64 `bws` CLI binary to `/opt/bitwarden/` with symlink at `/usr/local/bin/bws`.
-
-**Key Variables** (in Ansible Vault):
-- `bws_access_token`: Machine account access token
-
-**Usage in Ansible**:
-```yaml
-- name: Get secret from Bitwarden
-  shell: bws secret get <secret-id> --access-token "{{ bws_access_token }}" --output json
-  register: result
-  no_log: true
-
-- name: Parse secret
-  set_fact:
-    secret_value: "{{ (result.stdout | from_json).value }}"
-  no_log: true
-```
-
-### Caddy Web Server
-
-**Files**:
-- `playbooks/common/install_caddy.yaml` - Initial installation and global TLS setup
-- `playbooks/caddy/caddy_reverse_proxy.yaml` - Reverse proxy record management
-- `playbooks/caddy/templates/caddy_reverse_proxy.j2` - Jinja2 template for generating proxy blocks
-- `playbooks/caddy/caddy_records.yaml` - Reverse proxy record definitions
-
-**Initial Setup** (`install_caddy.yaml`):
-- Installs Caddy binary with Cloudflare DNS plugin
-- Creates systemd service with security hardening
-- Fetches Cloudflare API token from Bitwarden Secrets Manager
-- Configures global TLS block with DNS-01 ACME challenge
-
-**Global TLS Configuration**:
-```caddyfile
-{
-  acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN}
-}
-```
-- Uses `acme_dns cloudflare` for automatic HTTPS via DNS-01 challenge
-- Cloudflare API token passed via environment variable (`CLOUDFLARE_API_TOKEN`)
-- No requirement for domains to be publicly accessible (uses Cloudflare API instead)
-- Automatic certificate renewal handled by Caddy
-
-**Ongoing Management** (`caddy_reverse_proxy.yaml`):
-Manage reverse proxy records by editing the YAML file and running the playbook. The playbook automatically loads `caddy_records.yaml` via the `vars_files` directive.
-
-**Workflow**:
-1. **Edit record definitions**: Add or update reverse proxy records in `playbooks/caddy/caddy_records.yaml`
-2. **Run the playbook**:
-   ```bash
-   ansible-playbook -i inventory/hosts.yaml playbooks/caddy/caddy_reverse_proxy.yaml
-   ```
-3. **Caddy automatically**:
-   - Reloads the updated configuration
-   - Requests certificates for new domains via Cloudflare DNS-01 challenge
-   - Deploys certificates without service interruption
-
-**What This Playbook Does**:
-- Installs Caddy binary with cloudflare-dns plugin (ARM64)
-- Creates caddy system user with proper permissions
-- Sets up systemd service with security hardening
-- Fetches Cloudflare API token from Bitwarden and stores at `/etc/caddy/cloudflare_token`
-
-**What This Playbook Does NOT Do**:
-- Create Caddyfile configuration (managed by separate playbooks)
-**Defining Reverse Proxy Records** (`inventory/group_vars/rpi/caddy_records.yaml`):
-```yaml
-reverse_proxy_records:
-  # HTTP backend (no TLS)
-  - domain: service.example.com
-    upstream: 10.0.0.10:8080
-
-  # HTTPS backend with self-signed certificate
-  - domain: secure.example.com
-    upstream: https://10.0.0.10:443
-    tls_skip_verify: true
-
-  # Multiple records can be defined, separated by empty lines
-  - domain: another.example.com
-    upstream: 10.0.0.20:9000
-```
-
-**How It Works**:
-1. Template (`caddy_reverse_proxy.j2`) iterates over records in `playbooks/caddy/caddy_records.yaml`
-2. Generates reverse proxy configuration blocks
-3. Uses `blockinfile` module to insert into Caddyfile (preserves other sections)
-4. Caddy reloads and automatically requests certificates for new domains
-
-**Key Variables** (in Ansible Vault):
-- `cloudflare_api_token_secret_id`: Bitwarden secret ID for Cloudflare API token
-- `bws_access_token`: Bitwarden machine account access token
-
-**Integration**:
-- OpenTofu manages DNS A records in Cloudflare
-- Ansible manages Caddy reverse proxy records and automatic TLS setup
-- Bitwarden Secrets Manager provides credentials securely at runtime
-
-## Portainer Container Management
-
-Container stacks are managed through OpenTofu using the `portainer/portainer` provider with Bitwarden integration for API credentials.
-
-**Setup**:
-- Docker server with Portainer installed via `ansible/playbooks/proxmox/setup_docker_server.yaml`
-- Portainer API key stored in Bitwarden Secrets Manager
-- Docker directories created: `/mnt/docker/{appdata,config,media,downloads}`
-- All directories owned by `dockeruser` (UID/GID 1000)
-
-**Configuration** (`opentofu/portainer/tofu.auto.tfvars`):
-- `portainer_url`: Portainer instance URL
-- `portainer_endpoint_id`: Target deployment endpoint
-- `portainer_api_key_secret_id`: Bitwarden secret UUID
-- `docker_user_puid/pgid`: Docker user permissions
-- `docker_timezone`: Cron schedule timezone
-- `docker_config_path`: `/mnt/docker/config`
-- `docker_data_path`: `/mnt/docker/appdata`
-
-**Stack Templates**: Docker Compose templates in `compose-files/` are rendered with template variables (PUID, PGID, TZ, paths) and deployed via `portainer_stack` resources in `stacks.tofu`.
-
-## Gluetun VPN Stack
-
-The gluetun stack provides a VPN service that tunnels multiple containers through AirVPN. All containers in the stack are configured to route through the VPN connection.
-
-**Containers in the stack**:
-- gluetun: VPN service (routes all other containers through it)
-- qbittorrent: Torrent client
-- radarr: Movie management
-- sonarr: TV series management
-- bazarr: Subtitle management
-- jellyseerr: Media request platform
-- prowlarr: Indexer aggregator
-- flaresolverr: Cloudflare challenge solver
-- librewolf: Private browser
-- profilarr: Profile manager
-
-**Initial Deployment**:
-
-1. Deploy via OpenTofu (takes 15-20 minutes):
-   ```bash
-   cd opentofu/portainer
-   tofu apply
-   ```
-
-2. Containers will deploy but VPN won't connect (expected - requires certificates)
-
-3. Generate AirVPN certificates from https://client.airvpn.org/ (OpenVPN 2.6 format)
-
-4. Place certificates in `ansible/playbooks/gluetun/airvpn-certs/`:
-   ```bash
-   cp client.crt ansible/playbooks/gluetun/airvpn-certs/
-   cp client.key ansible/playbooks/gluetun/airvpn-certs/
-   ```
-
-5. Run the Ansible playbook to deploy certificates to the Docker host:
-   ```bash
-   cd ansible
-   ansible-playbook -i inventory/hosts.yaml playbooks/gluetun/configure_airvpn_certificates.yaml
-   ```
-
-   This playbook will:
-   - Fetch Docker SSH credentials from Bitwarden Secrets Manager
-   - Verify certificate files exist locally
-   - Create gluetun config directory on Docker host
-   - Copy certificates with secure permissions (0600)
-
-   **Prerequisites**:
-   - `docker_ssh_password_uuid` must be defined in Ansible Vault
-   - `docker_ip` must be configured in inventory
-   - `bws_access_token` environment variable set
-
-6. After the playbook completes, manually restart the gluetun container in Portainer:
-   - Go to Portainer dashboard (https://portainer.ketwork.in)
-   - Find the gluetun container
-   - Click "Restart"
-   - Check container logs to verify "VPN connected" message appears
-
-**Storage mounts**:
-- Config: `/mnt/docker/config/` (container configs, gitignored certificates)
-- Media: `/mnt/docker/media/` (SMB mount for movies/TV)
-- Downloads: `/mnt/docker/downloads/` (SMB mount for torrents)
-
-**Certificate management**: AirVPN client certificates are stored in `ansible/playbooks/gluetun/airvpn-certs/` and are gitignored to prevent accidental credential exposure. Certificates must be generated from AirVPN dashboard at https://client.airvpn.org/ (OpenVPN 2.6 format).
-
-## Configuration Files
-
-### Cloudflare OpenTofu Module
-
-DNS records and infrastructure configuration are managed via OpenTofu with credentials fetched from Bitwarden at runtime.
-
-**Configuration** (`opentofu/cloudflare/tofu.auto.tfvars`):
-```hcl
-cloudflare_api_token_secret_id       = "uuid-from-bitwarden"
-cloudflare_account_id_secret_id      = "uuid-from-bitwarden"
-cloudflare_zone_id_secret_id         = "uuid-from-bitwarden"
-homelab_reverse_proxy_ip_secret_id   = "uuid-from-bitwarden"
-vps_reverse_proxy_ip_secret_id       = "uuid-from-bitwarden"
-```
-
-**Adding DNS Records** (`opentofu/cloudflare/dns_records.tofu`):
-```hcl
-locals {
-  a_records = {
-    "service-internal" = { content = local.homelab_reverse_proxy_ip }
-    "service-external" = { content = local.vps_reverse_proxy_ip, proxied = true }
-  }
-}
-```
-
-### Portainer OpenTofu Module
-
-Stacks defined as Docker Compose templates in `compose-files/` with template variables for PUID, PGID, timezone, and paths. Resources deployed in `stacks.tofu` using the `portainer_stack` resource type.
-
 ## Security
 
 - **Ansible Vault**: Automatic password loading from `ansible/vault/.vault_password`
 - **Bitwarden Access Token**: Environment variable only (`~/.bashrc`)
 - **No Hardcoded Secrets**: All credentials fetched at runtime
 - **Gitignored Files**: Vault passwords, state files, secrets.auto.tfvars
-
-## Key Differences from Standard Setups
-
-1. **Complete Bitwarden Integration**:
-   - All infrastructure credentials in Bitwarden (API tokens, IDs, IP addresses)
-   - Zero hardcoded values in repository
-   - Repository fully anonymized - no identifying information
-   - Dual secrets management: Ansible Vault for playbook secrets, Bitwarden for infrastructure
-
-2. **OpenTofu Bitwarden Integration**:
-   - Uses `maxlaverse/bitwarden` provider with embedded client
-   - No external CLI dependency for OpenTofu
-   - Direct server communication for better performance
-   - Fetches 5 secrets at runtime: API token, account ID, zone ID, 2 reverse proxy IPs
-
-3. **DNS Records in Code**:
-   - DNS records defined in `.tofu` files using `for_each` pattern
-   - IP addresses fetched from Bitwarden (local values, not hardcoded)
-   - All configuration version controlled and safe to commit
-   - Separation between internal (homelab) and external (VPS) services
-
-4. **Caddy + Ansible Integration**:
-   - Ansible installs Caddy with Cloudflare DNS plugin for automatic HTTPS
-   - Global TLS configured for DNS-01 ACME challenge (no public access required)
-   - Reverse proxy records defined in `playbooks/caddy/caddy_records.yaml` (version controlled)
-   - Ansible manages Caddyfile configuration via Jinja2 templates and `blockinfile`
-   - OpenTofu manages DNS A records in Cloudflare
-   - Clear separation: DNS records (OpenTofu) + reverse proxy config (Ansible) + TLS automation (Caddy)
 
 ## Proxmox VM Setup for Hardware Passthrough
 
@@ -566,6 +513,15 @@ After GPU passthrough is configured:
 - All access must be via SSH
 - Continue configuration with Ansible playbooks
 - Verify GPU passthrough in VM: `lspci | grep VGA`
+
+## Key Concepts and Terminology
+
+-   **Control Node**: The machine where you run Ansible and OpenTofu commands.
+-   **IaC (Infrastructure as Code)**: Managing and provisioning infrastructure through code instead of manual processes.
+-   **Jinja2**: A templating engine for Python, used in Ansible to create dynamic configuration files.
+-   **Playbook**: A set of instructions for Ansible to execute.
+-   **OpenTofu Module**: A collection of `.tf` files in a directory that defines a set of resources.
+-   **Provider**: A plugin for OpenTofu that interacts with a specific API (e.g., Cloudflare, Portainer, Bitwarden).
 
 ## Reference
 

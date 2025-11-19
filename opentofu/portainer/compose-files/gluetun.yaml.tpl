@@ -18,7 +18,7 @@ services:
       - "53594:53594/tcp"   # AirVPN forwarded port
       - "53594:53594/udp"   # AirVPN forwarded port
       - "8585:8585/tcp"     # qbittorrent WebUI
-      - "6868:6868/tcp"     # qbittorrent peer connections
+      - "6868:6868/tcp"     # profilarr
       - "5055:5055/tcp"     # jellyseerr
       - "7878:7878/tcp"     # radarr
       - "9696:9696/tcp"     # prowlarr

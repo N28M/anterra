@@ -5,13 +5,15 @@
 internal_reverse_proxy_records:
   - domain: bazarr.ketwork.in
     upstream: "http://{{ docker_ip }}:6767"
-c  - domain: browser.ketwork.in
+  - domain: browser.ketwork.in
     upstream: "http://{{ docker_ip }}:3080"
   - domain: flaresolverr.ketwork.in
     upstream: "http://{{ docker_ip }}:8191"
   - domain: portainer.ketwork.in
     upstream: "https://{{ docker_ip }}:9443"
     tls_skip_verify: true
+  - domain: profilarr.ketwork.in
+    upstream: "http://{{ docker_ip }}:6868"
   - domain: prowlarr.ketwork.in
     upstream: "http://{{ docker_ip }}:9696"
   - domain: pve.ketwork.in

@@ -24,6 +24,9 @@ locals {
     "portainer" = {
       content = local.homelab_reverse_proxy_ip
     }
+    "profilarr" = {
+      content = local.homelab_reverse_proxy_ip
+    }
     "prowlarr" = {
       content = local.homelab_reverse_proxy_ip
     }

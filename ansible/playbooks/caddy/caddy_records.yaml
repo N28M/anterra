@@ -5,6 +5,8 @@
 internal_reverse_proxy_records:
   - domain: bazarr.ketwork.in
     upstream: "http://{{ docker_ip }}:6767"
+c  - domain: browser.ketwork.in
+    upstream: "http://{{ docker_ip }}:3080"
   - domain: flaresolverr.ketwork.in
     upstream: "http://{{ docker_ip }}:8191"
   - domain: portainer.ketwork.in

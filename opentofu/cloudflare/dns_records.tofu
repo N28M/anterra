@@ -15,6 +15,9 @@ locals {
     "bazarr" = {
       content = local.homelab_reverse_proxy_ip
     }
+    "browser" = {
+      content = local.homelab_reverse_proxy_ip
+    }
     "flaresolverr" = {
       content = local.homelab_reverse_proxy_ip
     }

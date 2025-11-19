@@ -84,3 +84,38 @@ variable "outbound_subnet_secret_id" {
   type        = string
   sensitive   = true
 }
+
+# Karakeep version tag
+variable "karakeep_version" {
+  description = "Docker image tag for Karakeep (e.g., 'release' or specific version)"
+  type        = string
+  default     = "release"
+}
+
+# Karakeep NextAuth URL (Bitwarden secret ID)
+variable "karakeep_nextauth_url_secret_id" {
+  description = "The Bitwarden secret ID for Karakeep NextAuth URL (e.g., https://karakeep.example.com)"
+  type        = string
+  sensitive   = true
+}
+
+# Karakeep NextAuth secret (Bitwarden secret ID)
+variable "karakeep_nextauth_secret_id" {
+  description = "The Bitwarden secret ID for Karakeep NextAuth secret (random string for session encryption)"
+  type        = string
+  sensitive   = true
+}
+
+# Karakeep Meilisearch master key (Bitwarden secret ID)
+variable "karakeep_meilisearch_key_secret_id" {
+  description = "The Bitwarden secret ID for Karakeep Meilisearch master key"
+  type        = string
+  sensitive   = true
+}
+
+# Karakeep OpenAI API key (Bitwarden secret ID) - optional for AI tagging
+variable "karakeep_openai_api_key_secret_id" {
+  description = "The Bitwarden secret ID for Karakeep OpenAI API key (optional, enables AI-powered tagging)"
+  type        = string
+  sensitive   = true
+}

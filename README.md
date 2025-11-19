@@ -237,6 +237,37 @@ Finally, configure Caddy to route traffic to your new service.
 
 Caddy will automatically fetch a TLS certificate for the new domain and begin proxying traffic. Your new service is now live!
 
+## Deployed Services
+
+### Karakeep (Bookmark Manager)
+
+Karakeep is a self-hosted bookmark manager with AI-powered tagging and full-text search capabilities.
+
+**Deployment Details**:
+- **URL**: https://keep.ketwork.in
+- **Stack Location**: `opentofu/portainer/compose-files/karakeep.yaml.tpl`
+- **DNS Management**: Cloudflare (proxied through Cloudflare CDN)
+- **Reverse Proxy**: VPS Caddy instance via Tailscale
+- **Port**: 3000 (internal)
+
+**Required Bitwarden Secrets**:
+1. `karakeep_nextauth_url_secret_id` - Application URL (https://keep.ketwork.in)
+2. `karakeep_nextauth_secret_id` - NextAuth session encryption key (generate with `openssl rand -base64 36`)
+3. `karakeep_meilisearch_key_secret_id` - Meilisearch master key (generate with `openssl rand -base64 36`)
+
+**Stack Components**:
+- **Web**: Main Karakeep application (ghcr.io/karakeep-app/karakeep)
+- **Chrome**: Headless Chrome for web scraping and automation
+- **Meilisearch**: Full-text search engine
+
+**Initial Setup**:
+1. Deploy the stack via OpenTofu Portainer configuration
+2. Visit https://keep.ketwork.in and create your admin account
+3. After creating your account, signups are automatically disabled (`DISABLE_SIGNUPS=true`)
+4. If you need to re-enable signups temporarily, remove the `DISABLE_SIGNUPS` environment variable from the compose template and reapply with `tofu apply`
+
+**Important Security Note**: The stack is configured with `DISABLE_SIGNUPS=true` to prevent unauthorized account creation. Only remove this setting temporarily if you need to create additional accounts, then immediately re-enable it and redeploy.
+
 ## Available Playbooks
 
 This section details the Ansible playbooks available in this repository.
@@ -355,7 +386,9 @@ anterra/
         ├── stacks.tofu
         ├── tofu.auto.tfvars
         └── compose-files/
-            └── watchtower.yaml.tpl       # Container stack templates
+            ├── watchtower.yaml.tpl       # Container auto-updater
+            ├── gluetun.yaml.tpl          # VPN container with tunneled services
+            └── karakeep.yaml.tpl         # Bookmark manager with AI tagging
 ```
 
 ## Security

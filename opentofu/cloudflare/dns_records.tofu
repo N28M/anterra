@@ -50,6 +50,10 @@ locals {
     # Points to VPS Caddy instance
     # proxied = true (enables Cloudflare DDoS protection, caching, etc.)
     #----------------------------------------------------------------
+    "keep" = {
+      content = local.vps_reverse_proxy_ip
+      proxied = true
+    }
     "plex" = {
       content = local.vps_reverse_proxy_ip
       proxied = true

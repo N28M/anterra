@@ -21,3 +21,8 @@ docker_downloads_path = "/mnt/docker/downloads"
 # Bitwarden secret IDs for Gluetun configuration
 vpn_input_port_secret_id = "95a1d37d-700b-4898-9578-b39a005cb0ce"
 outbound_subnet_secret_id = "f58eec00-2682-4a82-81f5-b39a005ce2cd"
+
+# Bitwarden secret IDs for karakeep
+karakeep_nextauth_url_secret_id = "a648d8c6-60d7-4690-a116-b39a00dc5d27" 
+karakeep_nextauth_secret_id = "33da07f9-acf3-435c-b126-b39a00da782d"
+karakeep_meilisearch_key_secret_id = "baa723ce-256a-4422-9ea2-b39a00daac32"

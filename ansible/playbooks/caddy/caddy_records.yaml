@@ -39,6 +39,8 @@ external_reverse_proxy_records:
   #   extra_headers:
   #     - "Host {host}"
   #     - "X-Real-IP {remote_host}"
+  - domain: keep.ketwork.in
+    upstream: "http://{{ docker_ip }}:3000"
   - domain: plex.ketwork.in
     upstream: "{{ plex_ip }}:32400"
   - domain: seerr.ketwork.in

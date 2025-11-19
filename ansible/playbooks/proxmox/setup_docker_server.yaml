@@ -125,6 +125,7 @@
       loop:
         - /mnt/docker
         - /mnt/docker/appdata
+        - /mnt/docker/config
         - /mnt/docker/media
         - /mnt/docker/downloads
 
@@ -200,6 +201,7 @@
 
           Directories created:
           - /mnt/docker/appdata (for container app data)
+          - /mnt/docker/config (for container configs)
           - /mnt/docker/media (Samba mount)
           - /mnt/docker/downloads (Samba mount)
 

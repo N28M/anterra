@@ -18,7 +18,8 @@ anterra/
 │   ├── inventory/
 │   │   ├── hosts.yaml                    # Target hosts
 │   │   ├── group_vars/all/secrets.yaml   # Encrypted secrets (Ansible Vault)
-│   │   └── host_vars/                    # Host-specific variables
+│   │   └── host_vars/
+│   │       └── docker.yaml               # Docker host variables
 │   ├── playbooks/
 │   │   ├── common/
 │   │   │   ├── install_opentofu.yaml
@@ -32,12 +33,26 @@ anterra/
 │   │   │   └── templates/
 │   │   │       └── caddy_reverse_proxy.j2
 │   │   └── proxmox/
+│   │       ├── setup_docker_server.yaml  # Docker server setup with Portainer
 │   │       ├── setup_media_server.yaml
 │   │       └── setup_samba_server.yaml
 │   └── vault/.vault_password             # Vault password (gitignored)
 └── opentofu/
     ├── cloudflare/                       # DNS, CDN, security
-    └── portainer/                        # Container orchestration
+    │   ├── providers.tofu
+    │   ├── bitwarden.tofu
+    │   ├── variables.tofu
+    │   ├── dns_records.tofu
+    │   ├── outputs.tofu
+    │   └── tofu.auto.tfvars
+    └── portainer/                        # Container orchestration & stacks
+        ├── providers.tofu
+        ├── bitwarden.tofu
+        ├── variables.tofu
+        ├── stacks.tofu
+        ├── tofu.auto.tfvars
+        └── compose-files/
+            └── watchtower.yaml.tpl       # Container stack templates
 ```
 
 ## Prerequisites
@@ -248,14 +263,35 @@ reverse_proxy_records:
 - Ansible manages Caddy reverse proxy records and automatic TLS setup
 - Bitwarden Secrets Manager provides credentials securely at runtime
 
+## Portainer Container Management
+
+Container stacks are managed through OpenTofu using the `portainer/portainer` provider with Bitwarden integration for API credentials.
+
+**Setup**:
+- Docker server with Portainer installed via `ansible/playbooks/proxmox/setup_docker_server.yaml`
+- Portainer API key stored in Bitwarden Secrets Manager
+- Docker directories created: `/mnt/docker/{appdata,config,media,downloads}`
+- All directories owned by `dockeruser` (UID/GID 1000)
+
+**Configuration** (`opentofu/portainer/tofu.auto.tfvars`):
+- `portainer_url`: Portainer instance URL
+- `portainer_endpoint_id`: Target deployment endpoint
+- `portainer_api_key_secret_id`: Bitwarden secret UUID
+- `docker_user_puid/pgid`: Docker user permissions
+- `docker_timezone`: Cron schedule timezone
+- `docker_config_path`: `/mnt/docker/config`
+- `docker_data_path`: `/mnt/docker/appdata`
+
+**Stack Templates**: Docker Compose templates in `compose-files/` are rendered with template variables (PUID, PGID, TZ, paths) and deployed via `portainer_stack` resources in `stacks.tofu`.
+
 ## Configuration Files
 
 ### Cloudflare OpenTofu Module
 
-All infrastructure configuration is stored in Bitwarden Secrets Manager. Update `opentofu/cloudflare/tofu.auto.tfvars` with Bitwarden secret IDs:
+DNS records and infrastructure configuration are managed via OpenTofu with credentials fetched from Bitwarden at runtime.
 
+**Configuration** (`opentofu/cloudflare/tofu.auto.tfvars`):
 ```hcl
-# Bitwarden secret IDs for all infrastructure configuration
 cloudflare_api_token_secret_id       = "uuid-from-bitwarden"
 cloudflare_account_id_secret_id      = "uuid-from-bitwarden"
 cloudflare_zone_id_secret_id         = "uuid-from-bitwarden"
@@ -263,25 +299,19 @@ homelab_reverse_proxy_ip_secret_id   = "uuid-from-bitwarden"
 vps_reverse_proxy_ip_secret_id       = "uuid-from-bitwarden"
 ```
 
-**Bitwarden Secrets to Create:**
-1. Cloudflare API token
-2. Cloudflare account ID
-3. Cloudflare zone ID
-4. Homelab reverse proxy IP address
-5. VPS reverse proxy IP address
-
-Add DNS records in `opentofu/cloudflare/dns_records.tofu`:
+**Adding DNS Records** (`opentofu/cloudflare/dns_records.tofu`):
 ```hcl
 locals {
   a_records = {
-    # Internal services (homelab)
-    "service1" = { content = local.homelab_reverse_proxy_ip }
-
-    # External services (VPS)
-    "service2" = { content = local.vps_reverse_proxy_ip, proxied = true }
+    "service-internal" = { content = local.homelab_reverse_proxy_ip }
+    "service-external" = { content = local.vps_reverse_proxy_ip, proxied = true }
   }
 }
 ```
+
+### Portainer OpenTofu Module
+
+Stacks defined as Docker Compose templates in `compose-files/` with template variables for PUID, PGID, timezone, and paths. Resources deployed in `stacks.tofu` using the `portainer_stack` resource type.
 
 ## Security
 

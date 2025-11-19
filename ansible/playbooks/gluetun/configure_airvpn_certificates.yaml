@@ -1,19 +1,19 @@
 ---
 # Configure AirVPN certificates for Gluetun container
-# This playbook copies the AirVPN client certificates (client.crt and client.key)
+# This playbook fetches AirVPN client certificates from Bitwarden and deploys them
 # to the gluetun container config directory on the Docker host
 #
 # Prerequisites:
-# 1. Place client.crt and client.key files in ansible/playbooks/gluetun/airvpn-certs/
-# 2. Generate these from AirVPN dashboard: https://client.airvpn.org/
-# 3. docker_ssh_password_uuid must be defined in vault secrets
-# 4. bws_access_token must be set
+# 1. airvpn_crt_uuid and airvpn_key_uuid must be defined in vault secrets
+# 2. docker_ssh_password_uuid must be defined in vault secrets
+# 3. bws_access_token must be set
+# 4. Certificate and key stored in Bitwarden Secrets Manager
 #
 # Usage:
 # ansible-playbook -i inventory/hosts.yaml playbooks/gluetun/configure_airvpn_certificates.yaml
 
-# Fetch Docker SSH password from Bitwarden Secrets Manager
-- name: Fetch Docker Credentials
+# Fetch credentials and certificates from Bitwarden Secrets Manager
+- name: Fetch Bitwarden Secrets
   hosts: localhost
   connection: local
   gather_facts: false
@@ -27,6 +27,20 @@
       no_log: true
       when: docker_ssh_password_uuid is defined
 
+    - name: Fetch AirVPN client certificate from Bitwarden
+      shell: bws secret get {{ airvpn_crt_uuid }} --access-token "{{ bws_access_token }}" --output json
+      register: airvpn_crt_result
+      changed_when: false
+      no_log: true
+      when: airvpn_crt_uuid is defined
+
+    - name: Fetch AirVPN client key from Bitwarden
+      shell: bws secret get {{ airvpn_key_uuid }} --access-token "{{ bws_access_token }}" --output json
+      register: airvpn_key_result
+      changed_when: false
+      no_log: true
+      when: airvpn_key_uuid is defined
+
     - name: Set Docker SSH password fact
       set_fact:
         docker_ssh_pass: "{{ (docker_ssh_password_result.stdout | from_json).value }}"
@@ -35,6 +49,17 @@
         - docker_ssh_password_uuid is defined
         - docker_ssh_password_result.stdout is defined
 
+    - name: Set AirVPN certificate facts
+      set_fact:
+        airvpn_crt_content: "{{ (airvpn_crt_result.stdout | from_json).value }}"
+        airvpn_key_content: "{{ (airvpn_key_result.stdout | from_json).value }}"
+      no_log: true
+      when:
+        - airvpn_crt_uuid is defined
+        - airvpn_key_uuid is defined
+        - airvpn_crt_result.stdout is defined
+        - airvpn_key_result.stdout is defined
+
     - name: Add docker host to inventory with credentials
       add_host:
         name: docker
@@ -42,9 +67,13 @@
         ansible_user: dockeruser
         ansible_ssh_pass: "{{ docker_ssh_pass }}"
         ansible_become_pass: "{{ docker_ssh_pass }}"
+        airvpn_crt_content: "{{ airvpn_crt_content }}"
+        airvpn_key_content: "{{ airvpn_key_content }}"
       no_log: true
       when:
         - docker_ssh_pass is defined
+        - airvpn_crt_content is defined
+        - airvpn_key_content is defined
 
 # Deploy AirVPN certificates to Docker host
 - name: Deploy AirVPN Certificates to Gluetun
@@ -53,35 +82,30 @@
   gather_facts: false
 
   vars:
-    airvpn_certs_source: "{{ playbook_dir }}/airvpn-certs"
     gluetun_config_path: "/mnt/docker/config/gluetun/config"
     docker_user: dockeruser
 
   tasks:
-    - name: Check if AirVPN certificate files exist locally
-      stat:
-        path: "{{ item }}"
-      register: cert_files
-      loop:
-        - "{{ airvpn_certs_source }}/client.crt"
-        - "{{ airvpn_certs_source }}/client.key"
-      delegate_to: localhost
-      become: false
-
-    - name: Fail if certificate files not found
+    - name: Validate certificate content is available
       fail:
         msg: |
-          AirVPN certificate files not found!
-          Expected location: {{ airvpn_certs_source }}/
-          Required files: client.crt, client.key
+          AirVPN certificate content not available!
+          Required vault variables:
+          - airvpn_crt_uuid
+          - airvpn_key_uuid
+
+          These UUIDs should reference Bitwarden secrets containing:
+          - client.crt content
+          - client.key content
 
           To generate certificates:
           1. Visit https://client.airvpn.org/
           2. Log in with your AirVPN account
           3. Download the certificates (OpenVPN 2.6 format)
           4. Extract client.crt and client.key
-          5. Place them in: {{ airvpn_certs_source }}/
-      when: cert_files.results[0].stat.exists == false or cert_files.results[1].stat.exists == false
+          5. Store the certificate and key content in Bitwarden Secrets Manager
+          6. Add the secret UUIDs to ansible vault as airvpn_crt_uuid and airvpn_key_uuid
+      when: airvpn_crt_content is not defined or airvpn_key_content is not defined
 
     - name: Create gluetun config directory
       file:
@@ -91,28 +115,30 @@
         group: "{{ docker_user }}"
         mode: '0755'
 
-    - name: Copy AirVPN client certificate to gluetun config
+    - name: Write AirVPN client certificate to gluetun config
       copy:
-        src: "{{ airvpn_certs_source }}/client.crt"
+        content: "{{ airvpn_crt_content }}"
         dest: "{{ gluetun_config_path }}/client.crt"
         owner: "{{ docker_user }}"
         group: "{{ docker_user }}"
         mode: '0600'
+      no_log: true
 
-    - name: Copy AirVPN client key to gluetun config
+    - name: Write AirVPN client key to gluetun config
       copy:
-        src: "{{ airvpn_certs_source }}/client.key"
+        content: "{{ airvpn_key_content }}"
         dest: "{{ gluetun_config_path }}/client.key"
         owner: "{{ docker_user }}"
         group: "{{ docker_user }}"
         mode: '0600'
+      no_log: true
 
     - name: Display completion message
       debug:
         msg: |
           AirVPN certificates deployed successfully!
 
-          Certificates copied to:
+          Certificates written to:
           - {{ gluetun_config_path }}/client.crt
           - {{ gluetun_config_path }}/client.key
 

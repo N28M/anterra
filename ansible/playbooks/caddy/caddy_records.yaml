@@ -3,12 +3,24 @@
 # Internal Records - Handled by homelab Caddy instance (rpi)
 # -------------------------------------------------------------------------
 internal_reverse_proxy_records:
+  - domain: bazarr.ketwork.in
+    upstream: "http://{{ docker_ip }}:6767"
+  - domain: flaresolverr.ketwork.in
+    upstream: "http://{{ docker_ip }}:8191"
   - domain: portainer.ketwork.in
     upstream: "https://{{ docker_ip }}:9443"
     tls_skip_verify: true
+  - domain: prowlarr.ketwork.in
+    upstream: "http://{{ docker_ip }}:9696"
   - domain: pve.ketwork.in
     upstream: "https://{{ pve_ip }}:8006"
     tls_skip_verify: true
+  - domain: qbittorrent.ketwork.in
+    upstream: "http://{{ docker_ip }}:8585"
+  - domain: radarr.ketwork.in
+    upstream: "http://{{ docker_ip }}:7878"
+  - domain: sonarr.ketwork.in
+    upstream: "http://{{ docker_ip }}:8989"
   - domain: ui.ketwork.in
     upstream: "https://{{ ui_ip }}:443"
     tls_skip_verify: true
@@ -25,3 +37,5 @@ external_reverse_proxy_records:
   #     - "X-Real-IP {remote_host}"
   - domain: plex.ketwork.in
     upstream: "{{ plex_ip }}:32400"
+  - domain: seerr.ketwork.in
+    upstream: "http://{{ docker_ip }}:5055"

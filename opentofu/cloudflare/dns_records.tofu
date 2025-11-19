@@ -12,10 +12,28 @@ locals {
     # Points to internal Caddy instance
     # proxied = false (internal IPs cannot use Cloudflare proxy)
     #----------------------------------------------------------------
+    "bazarr" = {
+      content = local.homelab_reverse_proxy_ip
+    }
+    "flaresolverr" = {
+      content = local.homelab_reverse_proxy_ip
+    }
     "portainer" = {
       content = local.homelab_reverse_proxy_ip
     }
+    "prowlarr" = {
+      content = local.homelab_reverse_proxy_ip
+    }
     "pve" = {
+      content = local.homelab_reverse_proxy_ip
+    }
+    "qbittorrent" = {
+      content = local.homelab_reverse_proxy_ip
+    }
+    "radarr" = {
+      content = local.homelab_reverse_proxy_ip
+    }
+    "sonarr" = {
       content = local.homelab_reverse_proxy_ip
     }
     "ui" = {
@@ -27,6 +45,10 @@ locals {
     # proxied = true (enables Cloudflare DDoS protection, caching, etc.)
     #----------------------------------------------------------------
     "plex" = {
+      content = local.vps_reverse_proxy_ip
+      proxied = true
+    }
+    "seerr" = {
       content = local.vps_reverse_proxy_ip
       proxied = true
     }

@@ -514,7 +514,8 @@ anterra/
             ├── watchtower.yaml.tpl       # Container auto-updater
             ├── gluetun.yaml.tpl          # VPN container with tunneled services
             ├── tailscale-airvpn.yaml.tpl # Gluetun + Tailscale exit node
-            └── karakeep.yaml.tpl         # Bookmark manager with AI tagging
+            ├── karakeep.yaml.tpl         # Bookmark manager with AI tagging
+            └── bentopdf.yaml.tpl         # Client-side PDF manipulation tool
 ```
 
 ## Security

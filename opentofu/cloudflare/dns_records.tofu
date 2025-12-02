@@ -53,6 +53,10 @@ locals {
     # Points to VPS Caddy instance
     # proxied = true (enables Cloudflare DDoS protection, caching, etc.)
     #----------------------------------------------------------------
+    "bento" = {
+      content = local.vps_reverse_proxy_ip
+      proxied = true
+    }
     "homeassistant" = {
       content = local.vps_reverse_proxy_ip
       proxied = true

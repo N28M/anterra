@@ -1,14 +1,30 @@
-# Watchtower stack - automatically updates Docker containers
+# Watchtower stack - automatically updates Docker containers on docker_pve2 (1:30 AM)
 resource "portainer_stack" "watchtower" {
   name            = "watchtower"
   deployment_type = "standalone"
   method          = "string"
   endpoint_id     = var.docker_pve2_portainer_endpoint_id
   stack_file_content = templatefile("${path.module}/compose-files/watchtower.yaml.tpl", {
-    docker_user_puid   = data.bitwarden_secret.docker_user_puid.value
-    docker_user_pgid   = data.bitwarden_secret.docker_user_pgid.value
-    docker_timezone    = var.docker_timezone
-    docker_config_path = var.docker_config_path
+    docker_user_puid    = data.bitwarden_secret.docker_user_puid.value
+    docker_user_pgid    = data.bitwarden_secret.docker_user_pgid.value
+    docker_timezone     = var.docker_timezone
+    docker_config_path  = var.docker_config_path
+    watchtower_schedule = "0 30 1 * * *"
+  })
+}
+
+# Watchtower stack - automatically updates Docker containers on docker_pve (3:30 AM, 2 hours after docker_pve2)
+resource "portainer_stack" "watchtower_docker_pve" {
+  name            = "watchtower"
+  deployment_type = "standalone"
+  method          = "string"
+  endpoint_id     = var.docker_pve_portainer_endpoint_id
+  stack_file_content = templatefile("${path.module}/compose-files/watchtower.yaml.tpl", {
+    docker_user_puid    = data.bitwarden_secret.docker_user_puid.value
+    docker_user_pgid    = data.bitwarden_secret.docker_user_pgid.value
+    docker_timezone     = var.docker_timezone
+    docker_config_path  = var.docker_config_path
+    watchtower_schedule = "0 30 3 * * *"
   })
 }
 

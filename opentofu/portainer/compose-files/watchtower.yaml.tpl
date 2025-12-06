@@ -11,8 +11,7 @@ services:
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_INCLUDE_STOPPED=true
       - WATCHTOWER_REVIVE_STOPPED=false
-      # Schedule: 0 30 1 * * * = 1:30 AM daily (5 AM JST / 1:30 AM IST)
-      - WATCHTOWER_SCHEDULE=0 30 1 * * *
+      - WATCHTOWER_SCHEDULE=${watchtower_schedule}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     network_mode: host

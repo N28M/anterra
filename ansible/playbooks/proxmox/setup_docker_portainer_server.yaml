@@ -57,7 +57,7 @@
 
   vars:
     docker_user: dockeruser
-    portainer_image: "cr.portainer.io/portainer/portainer-ee:latest"
+    portainer_image: "portainer/portainer-ee:2.33.5-alpine"
 
   tasks:
     - name: Gather facts
@@ -173,6 +173,7 @@
         image: "{{ portainer_image }}"
         state: started
         restart_policy: always
+        pull: true
         ports:
           - "8000:8000"
           - "9443:9443"

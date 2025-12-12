@@ -1,0 +1,82 @@
+---
+# One-time fix to recreate Portainer agent after Portainer server reinstall
+# This clears the old pairing and allows the agent to connect to the new Portainer instance
+
+- name: Fetch Bitwarden Secrets
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: always
+  tasks:
+    - name: Fetch docker_pve SSH password from Bitwarden
+      shell: bws secret get "{{ docker_pve_ssh_password_uuid }}" --access-token "{{ bws_access_token }}" --output json
+      register: docker_pve_ssh_password_result
+      no_log: true
+      changed_when: false
+      when: docker_pve_ssh_password_uuid is defined
+
+    - name: Set docker_pve SSH password fact
+      set_fact:
+        docker_pve_ssh_password: "{{ (docker_pve_ssh_password_result.stdout | from_json).value }}"
+      no_log: true
+      when:
+        - docker_pve_ssh_password_uuid is defined
+        - docker_pve_ssh_password_result.stdout is defined
+
+    - name: Add docker_pve_ssh_password to hostvars
+      add_host:
+        name: docker_pve
+        ansible_ssh_pass: "{{ docker_pve_ssh_password }}"
+        ansible_become_pass: "{{ docker_pve_ssh_password }}"
+      no_log: true
+      when: docker_pve_ssh_password is defined
+
+- name: Recreate Portainer Agent
+  hosts: docker_pve
+  become: true
+  gather_facts: false
+
+  vars:
+    portainer_agent_image: "portainer/agent:2.21.5"
+
+  tasks:
+    - name: Stop and remove existing Portainer agent container
+      docker_container:
+        name: portainer_agent
+        state: absent
+
+    - name: Pull Portainer agent image
+      docker_image:
+        name: "{{ portainer_agent_image }}"
+        source: pull
+
+    - name: Deploy fresh Portainer agent container
+      docker_container:
+        name: portainer_agent
+        image: "{{ portainer_agent_image }}"
+        state: started
+        restart_policy: always
+        ports:
+          - "9001:9001"
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+          - /var/lib/docker/volumes:/var/lib/docker/volumes
+
+    - name: Verify Portainer agent is running
+      docker_container_info:
+        name: portainer_agent
+      register: portainer_agent_info
+
+    - name: Display completion message
+      debug:
+        msg: |
+          Portainer agent has been recreated successfully!
+
+          Status: {{ portainer_agent_info.container.State.Status }}
+          Image: {{ portainer_agent_image }}
+          Port: 9001
+
+          You can now add this environment to Portainer:
+          - Go to Environments > Add environment
+          - Choose "Docker Standalone" via Agent
+          - Use agent URL: {{ ansible_host }}:9001

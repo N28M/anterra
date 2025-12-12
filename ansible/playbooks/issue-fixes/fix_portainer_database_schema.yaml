@@ -1,0 +1,105 @@
+---
+# One-time fix for Portainer database schema issues
+# This playbook nukes the existing Portainer installation and starts fresh
+# WARNING: This will delete all Portainer configuration, users, and settings
+
+- name: Fetch Bitwarden Secrets
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: always
+  tasks:
+    - name: Fetch Docker SSH password from Bitwarden
+      shell: bws secret get {{ docker_pve2_ssh_password_uuid }} --access-token "{{ bws_access_token }}" --output json
+      register: docker_ssh_password_result
+      changed_when: false
+      no_log: true
+      when: docker_pve2_ssh_password_uuid is defined
+
+    - name: Set Docker SSH password fact
+      set_fact:
+        docker_ssh_pass: "{{ (docker_ssh_password_result.stdout | from_json).value }}"
+      no_log: true
+      when:
+        - docker_pve2_ssh_password_uuid is defined
+        - docker_ssh_password_result.stdout is defined
+
+    - name: Add credentials to docker host
+      add_host:
+        name: docker_pve2
+        ansible_host: "{{ docker_pve2_ip }}"
+        ansible_user: dockeruser
+        ansible_ssh_pass: "{{ docker_ssh_pass }}"
+        ansible_become_pass: "{{ docker_ssh_pass }}"
+      no_log: true
+      when: docker_ssh_pass is defined
+
+- name: Nuclear Fix - Reinstall Portainer
+  hosts: docker_pve2
+  become: true
+  gather_facts: false
+
+  vars:
+    portainer_image: "portainer/portainer-ee:2.33.5-alpine"
+
+  tasks:
+    - name: Gather facts
+      setup:
+
+    - name: Stop and remove existing Portainer container
+      docker_container:
+        name: portainer
+        state: absent
+
+    - name: Remove Portainer data volume
+      docker_volume:
+        name: portainer_data
+        state: absent
+
+    - name: Create fresh Portainer volume
+      docker_volume:
+        name: portainer_data
+
+    - name: Pull specific Portainer version
+      docker_image:
+        name: "{{ portainer_image }}"
+        source: pull
+
+    - name: Deploy fresh Portainer container
+      docker_container:
+        name: portainer
+        image: "{{ portainer_image }}"
+        state: started
+        restart_policy: always
+        ports:
+          - "8000:8000"
+          - "9443:9443"
+          - "9000:9000"
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+          - portainer_data:/data
+
+    - name: Wait for Portainer to start
+      wait_for:
+        port: 9443
+        delay: 5
+        timeout: 60
+
+    - name: Verify Portainer is running
+      shell: docker ps --filter "name=portainer" --format "{% raw %}{{.Status}}{% endraw %}"
+      register: portainer_status
+      changed_when: false
+
+    - name: Display completion message
+      debug:
+        msg: |
+          Portainer has been reinstalled successfully!
+
+          Status: {{ portainer_status.stdout }}
+          Version: {{ portainer_image }}
+
+          Access Portainer at:
+          - HTTPS: https://{{ ansible_host }}:9443
+          - HTTP: http://{{ ansible_host }}:9000
+
+          You will need to complete initial setup again.

@@ -54,6 +54,7 @@
 
   vars:
     docker_user: dockeruser
+    portainer_agent_image: "portainer/agent:2.21.5"
 
   tasks:
     - name: Gather facts
@@ -113,16 +114,17 @@
     # Install Portainer Agent
     - name: Pull Portainer Agent image
       docker_image:
-        name: portainer/agent:latest
+        name: "{{ portainer_agent_image }}"
         source: pull
         state: present
 
     - name: Run Portainer Agent container
       docker_container:
         name: portainer_agent
-        image: portainer/agent:latest
+        image: "{{ portainer_agent_image }}"
         state: started
         restart_policy: always
+        pull: true
         ports:
           - "9001:9001"
         volumes:

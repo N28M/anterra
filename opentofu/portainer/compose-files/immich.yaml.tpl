@@ -18,6 +18,8 @@ services:
     restart: always
     healthcheck:
       disable: false
+    labels:
+      - "com.centurylinklabs.watchtower.monitor-only=true"
 
   immich-machine-learning:
     container_name: immich_machine_learning
@@ -32,6 +34,8 @@ services:
     restart: always
     healthcheck:
       disable: false
+    labels:
+      - "com.centurylinklabs.watchtower.monitor-only=true"
 
   redis:
     container_name: immich_redis
@@ -39,6 +43,8 @@ services:
     healthcheck:
       test: redis-cli ping || exit 1
     restart: always
+    labels:
+      - "com.centurylinklabs.watchtower.monitor-only=true"
 
   database:
     container_name: immich_postgres
@@ -52,6 +58,8 @@ services:
       - ${immich_db_data_location}:/var/lib/postgresql/data
     shm_size: 128mb
     restart: always
+    labels:
+      - "com.centurylinklabs.watchtower.monitor-only=true"
 
 volumes:
   model-cache:

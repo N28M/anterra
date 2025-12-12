@@ -85,3 +85,8 @@ data "bitwarden_secret" "jotty_oidc_client_id" {
 data "bitwarden_secret" "jotty_oidc_client_secret" {
   id = var.jotty_oidc_client_secret_secret_id
 }
+
+# Fetch domain name from Bitwarden Secrets Manager
+data "bitwarden_secret" "domain_name" {
+  id = var.domain_name_secret_id
+}

@@ -3,29 +3,29 @@
 # Internal Records - Handled by homelab Caddy instance (rpi)
 # -------------------------------------------------------------------------
 internal_reverse_proxy_records:
-  - domain: bazarr.ketwork.in
+  - domain: bazarr.{{ domain_name }}
     upstream: "http://{{ docker_pve2_ip }}:6767"
-  - domain: browser.ketwork.in
+  - domain: browser.{{ domain_name }}
     upstream: "http://{{ docker_pve2_ip }}:3080"
-  - domain: flaresolverr.ketwork.in
+  - domain: flaresolverr.{{ domain_name }}
     upstream: "http://{{ docker_pve2_ip }}:8191"
-  - domain: portainer.ketwork.in
+  - domain: portainer.{{ domain_name }}
     upstream: "https://{{ docker_pve2_ip }}:9443"
     tls_skip_verify: true
-  - domain: profilarr.ketwork.in
+  - domain: profilarr.{{ domain_name }}
     upstream: "http://{{ docker_pve2_ip }}:6868"
-  - domain: prowlarr.ketwork.in
+  - domain: prowlarr.{{ domain_name }}
     upstream: "http://{{ docker_pve2_ip }}:9696"
-  - domain: pve.ketwork.in
+  - domain: pve.{{ domain_name }}
     upstream: "https://{{ pve_ip }}:8006"
     tls_skip_verify: true
-  - domain: qbittorrent.ketwork.in
+  - domain: qbittorrent.{{ domain_name }}
     upstream: "http://{{ docker_pve2_ip }}:8585"
-  - domain: radarr.ketwork.in
+  - domain: radarr.{{ domain_name }}
     upstream: "http://{{ docker_pve2_ip }}:7878"
-  - domain: sonarr.ketwork.in
+  - domain: sonarr.{{ domain_name }}
     upstream: "http://{{ docker_pve2_ip }}:8989"
-  - domain: ui.ketwork.in
+  - domain: ui.{{ domain_name }}
     upstream: "https://{{ ui_ip }}:443"
     tls_skip_verify: true
 
@@ -34,22 +34,22 @@ internal_reverse_proxy_records:
 # DNS proxied via Cloudflare, traffic routed through Tailscale
 # -------------------------------------------------------------------------
 external_reverse_proxy_records:
-  - domain: bento.ketwork.in
+  - domain: bento.{{ domain_name }}
     upstream: "http://{{ docker_pve2_ip }}:9100"
-  - domain: homeassistant.ketwork.in
+  - domain: homeassistant.{{ domain_name }}
     upstream: "http://{{ homeassistant_ip }}:8123"
     extra_headers:
       - "Host {host}"
       - "X-Real-IP {remote_host}"
-  - domain: immich.ketwork.in
+  - domain: immich.{{ domain_name }}
     upstream: "http://{{ docker_pve_ip }}:2283"
-  - domain: keep.ketwork.in
+  - domain: keep.{{ domain_name }}
     upstream: "http://{{ docker_pve2_ip }}:3000"
-  - domain: n8n.ketwork.in
+  - domain: n8n.{{ domain_name }}
     upstream: "http://{{ docker_pve_ip }}:5678"
-  - domain: plex.ketwork.in
+  - domain: plex.{{ domain_name }}
     upstream: "{{ plex_ip }}:32400"
-  - domain: rw.ketwork.in
+  - domain: rw.{{ domain_name }}
     upstream: "http://{{ docker_pve2_ip }}:9200"
-  - domain: seerr.ketwork.in
+  - domain: seerr.{{ domain_name }}
     upstream: "http://{{ docker_pve2_ip }}:5055"

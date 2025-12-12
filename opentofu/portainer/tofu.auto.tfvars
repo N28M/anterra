@@ -1,5 +1,4 @@
 # Portainer configuration
-portainer_url                     = "https://portainer.ketwork.in"
 docker_pve2_portainer_endpoint_id = 3
 docker_pve_portainer_endpoint_id  = 6
 
@@ -49,3 +48,6 @@ n8n_encryption_key_secret_id     = "c04cdd36-24f3-442b-994e-b3a4006ed76b"
 jotty_oidc_issuer_secret_id        = "0498fc2b-33dd-45f9-9c4e-b3aa004ab7c9"
 jotty_oidc_client_id_secret_id     = "a4fee8b4-703d-4b91-b186-b3aa004aceed"
 jotty_oidc_client_secret_secret_id = "2aa97515-6dc9-47a3-9d25-b3aa004af0ee"
+
+# Domain name
+domain_name_secret_id = "ad518b08-eb55-4eb3-a040-b3b10077183d"

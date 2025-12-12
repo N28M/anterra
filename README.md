@@ -251,7 +251,7 @@ Caddy will automatically fetch a TLS certificate for the new domain and begin pr
 Home Assistant is an open-source home automation platform that provides centralized control for smart home devices.
 
 **Deployment Details**:
-- **URL**: https://homeassistant.ketwork.in
+- **URL**: https://homeassistant.example.com
 - **VM Location**: Proxmox homelab
 - **DNS Management**: Cloudflare (proxied through Cloudflare CDN)
 - **Reverse Proxy**: VPS Caddy instance via Tailscale
@@ -286,14 +286,14 @@ http:
 Karakeep is a self-hosted bookmark manager with AI-powered tagging and full-text search capabilities.
 
 **Deployment Details**:
-- **URL**: https://keep.ketwork.in
+- **URL**: https://keep.example.com
 - **Stack Location**: `opentofu/portainer/compose-files/karakeep.yaml.tpl`
 - **DNS Management**: Cloudflare (proxied through Cloudflare CDN)
 - **Reverse Proxy**: VPS Caddy instance via Tailscale
 - **Port**: 3000 (internal)
 
 **Required Bitwarden Secrets**:
-1. `karakeep_nextauth_url_secret_id` - Application URL (https://keep.ketwork.in)
+1. `karakeep_nextauth_url_secret_id` - Application URL (https://keep.example.com)
 2. `karakeep_nextauth_secret_id` - NextAuth session encryption key (generate with `openssl rand -base64 36`)
 3. `karakeep_meilisearch_key_secret_id` - Meilisearch master key (generate with `openssl rand -base64 36`)
 4. `karakeep_openai_api_key_secret_id` - OpenAI API key for AI-powered automatic tagging (optional)
@@ -305,7 +305,7 @@ Karakeep is a self-hosted bookmark manager with AI-powered tagging and full-text
 
 **Initial Setup**:
 1. Deploy the stack via OpenTofu Portainer configuration
-2. Visit https://keep.ketwork.in and create your admin account
+2. Visit https://keep.example.com and create your admin account
 3. After creating your account, signups are automatically disabled (`DISABLE_SIGNUPS=true`)
 4. If you need to re-enable signups temporarily, remove the `DISABLE_SIGNUPS` environment variable from the compose template and reapply with `tofu apply`
 

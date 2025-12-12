@@ -14,9 +14,11 @@ terraform {
 # Extract all infrastructure configuration from Bitwarden secrets
 locals {
   portainer_api_key = data.bitwarden_secret.portainer_api_key.value
+  domain_name       = data.bitwarden_secret.domain_name.value
+  portainer_url     = "https://portainer.${local.domain_name}"
 }
 
 provider "portainer" {
-  endpoint = var.portainer_url
+  endpoint = local.portainer_url
   api_key  = local.portainer_api_key
 }

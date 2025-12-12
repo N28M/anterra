@@ -15,9 +15,9 @@ services:
       - DB_POSTGRESDB_USER=n8n
       - DB_POSTGRESDB_PASSWORD=${n8n_db_password}
       - N8N_ENCRYPTION_KEY=${n8n_encryption_key}
-      - N8N_HOST=n8n.ketwork.in
+      - N8N_HOST=n8n.${domain_name}
       - N8N_PROTOCOL=https
-      - WEBHOOK_URL=https://n8n.ketwork.in/
+      - WEBHOOK_URL=https://n8n.${domain_name}/
       - GENERIC_TIMEZONE=${docker_timezone}
       - TZ=${docker_timezone}
       - NODE_ENV=production

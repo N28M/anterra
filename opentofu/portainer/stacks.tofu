@@ -107,6 +107,7 @@ resource "portainer_stack" "n8n" {
     n8n_db_data_location   = var.n8n_db_data_location
     n8n_db_password        = data.bitwarden_secret.n8n_db_password.value
     n8n_encryption_key     = data.bitwarden_secret.n8n_encryption_key.value
+    domain_name            = local.domain_name
   })
 }
 
@@ -137,5 +138,6 @@ resource "portainer_stack" "jotty" {
     oidc_issuer        = data.bitwarden_secret.jotty_oidc_issuer.value
     oidc_client_id     = data.bitwarden_secret.jotty_oidc_client_id.value
     oidc_client_secret = data.bitwarden_secret.jotty_oidc_client_secret.value
+    domain_name        = local.domain_name
   })
 }

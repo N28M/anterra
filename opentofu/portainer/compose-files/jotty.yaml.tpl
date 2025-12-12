@@ -11,7 +11,7 @@ services:
       - OIDC_ISSUER=${oidc_issuer}
       - OIDC_CLIENT_ID=${oidc_client_id}
       - OIDC_CLIENT_SECRET=${oidc_client_secret}
-      - APP_URL=https://rw.ketwork.in
+      - APP_URL=https://rw.${domain_name}
       - INTERNAL_API_URL=http://localhost:3000
       - SSO_FALLBACK_LOCAL=false
     volumes:

@@ -6,12 +6,6 @@ variable "bws_access_token" {
   sensitive   = true
 }
 
-# Portainer URL - the base URL of your Portainer installation
-variable "portainer_url" {
-  description = "The base URL of the Portainer instance (e.g., https://portainer.example.com)"
-  type        = string
-}
-
 # Bitwarden secret ID for Portainer API key
 variable "portainer_api_key_secret_id" {
   description = "The Bitwarden secret ID for the Portainer API key"
@@ -210,6 +204,13 @@ variable "jotty_oidc_client_id_secret_id" {
 # Jotty OIDC client secret (Bitwarden secret ID)
 variable "jotty_oidc_client_secret_secret_id" {
   description = "The Bitwarden secret ID for Jotty OIDC client secret"
+  type        = string
+  sensitive   = true
+}
+
+# Domain name (Bitwarden secret ID)
+variable "domain_name_secret_id" {
+  description = "The Bitwarden secret ID for the base domain name"
   type        = string
   sensitive   = true
 }

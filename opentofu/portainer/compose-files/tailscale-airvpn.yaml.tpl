@@ -24,5 +24,7 @@ services:
       - ${docker_config_path}/tailscale-airvpn/tailscale:/var/lib/tailscale
     environment:
       - TS_AUTHKEY=${tailscale_auth_key_value}
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_HOSTNAME=tailscale-airvpn
       - TS_EXTRA_ARGS=--advertise-exit-node
     restart: always

@@ -158,7 +158,7 @@
           What=//{{ samba_share_ip }}/media
           Where=/mnt/docker/media
           Type=cifs
-          Options=credentials=/etc/docker-smb-credentials,uid=dockeruser,gid=dockeruser,iocharset=utf8,noperm,_netdev,x-systemd.automount,x-systemd.idle-timeout=60,x-systemd.mount-timeout=90s
+          Options=credentials=/etc/docker-smb-credentials,uid=dockeruser,gid=dockeruser,iocharset=utf8,noperm,_netdev,x-systemd.mount-timeout=90s
           TimeoutSec=90
 
           [Install]
@@ -178,7 +178,6 @@
 
           [Automount]
           Where=/mnt/docker/media
-          TimeoutIdleSec=60
 
           [Install]
           WantedBy=multi-user.target
@@ -199,7 +198,7 @@
           What=//{{ samba_share_ip }}/downloads
           Where=/mnt/docker/downloads
           Type=cifs
-          Options=credentials=/etc/docker-smb-credentials,uid=dockeruser,gid=dockeruser,iocharset=utf8,noperm,_netdev,x-systemd.automount,x-systemd.idle-timeout=60,x-systemd.mount-timeout=90s
+          Options=credentials=/etc/docker-smb-credentials,uid=dockeruser,gid=dockeruser,iocharset=utf8,noperm,_netdev,x-systemd.mount-timeout=90s
           TimeoutSec=90
 
           [Install]
@@ -219,7 +218,6 @@
 
           [Automount]
           Where=/mnt/docker/downloads
-          TimeoutIdleSec=60
 
           [Install]
           WantedBy=multi-user.target

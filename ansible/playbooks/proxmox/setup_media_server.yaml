@@ -140,25 +140,137 @@
         mode: '0600'
       no_log: true
 
-    - name: Add Samba media share to fstab (media)
-      lineinfile:
-        path: /etc/fstab
-        regexp: '^\S+\s+/mnt/media\s+'
-        line: "//{{ samba_share_ip }}/media /mnt/media cifs credentials=/etc/plex-smb-credentials,uid=plex,gid=plex,iocharset=utf8,noperm 0 0"
-        state: present
+    # Configure systemd mount units for SMB shares with Plex service dependencies
+    # This prevents Plex from starting when SMB shares are unavailable
+    - name: Create systemd mount unit for media share
+      copy:
+        dest: /etc/systemd/system/mnt-media.mount
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=SMB mount /mnt/media
+          Requires=network-online.target
+          After=network-online.target
+          Before=plexmediaserver.service
 
-    - name: Add Samba downloads share to fstab (downloads)
-      lineinfile:
-        path: /etc/fstab
-        regexp: '^\S+\s+/mnt/downloads\s+'
-        line: "//{{ samba_share_ip }}/downloads /mnt/downloads cifs credentials=/etc/plex-smb-credentials,uid=plex,gid=plex,iocharset=utf8,noperm 0 0"
-        state: present
+          [Mount]
+          What=//{{ samba_share_ip }}/media
+          Where=/mnt/media
+          Type=cifs
+          Options=credentials=/etc/plex-smb-credentials,uid=plex,gid=plex,iocharset=utf8,noperm,_netdev,x-systemd.automount,x-systemd.idle-timeout=60,x-systemd.mount-timeout=90s
+          TimeoutSec=90
 
-    - name: Mount all filesystems from fstab
-      command: mount -a
-      register: mount_result
-      changed_when: mount_result.rc == 0 and mount_result.stdout != ""
-      failed_when: false
+          [Install]
+          WantedBy=multi-user.target
+      register: mount_unit_media
+
+    - name: Create systemd automount unit for media share
+      copy:
+        dest: /etc/systemd/system/mnt-media.automount
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Automount for /mnt/media
+          Requires=network-online.target
+          After=network-online.target
+          Before=plexmediaserver.service
+
+          [Automount]
+          Where=/mnt/media
+          TimeoutIdleSec=60
+
+          [Install]
+          WantedBy=multi-user.target
+      register: automount_unit_media
+
+    - name: Create systemd mount unit for downloads share
+      copy:
+        dest: /etc/systemd/system/mnt-downloads.mount
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=SMB mount /mnt/downloads
+          Requires=network-online.target
+          After=network-online.target
+          Before=plexmediaserver.service
+
+          [Mount]
+          What=//{{ samba_share_ip }}/downloads
+          Where=/mnt/downloads
+          Type=cifs
+          Options=credentials=/etc/plex-smb-credentials,uid=plex,gid=plex,iocharset=utf8,noperm,_netdev,x-systemd.automount,x-systemd.idle-timeout=60,x-systemd.mount-timeout=90s
+          TimeoutSec=90
+
+          [Install]
+          WantedBy=multi-user.target
+      register: mount_unit_downloads
+
+    - name: Create systemd automount unit for downloads share
+      copy:
+        dest: /etc/systemd/system/mnt-downloads.automount
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Automount for /mnt/downloads
+          Requires=network-online.target
+          After=network-online.target
+          Before=plexmediaserver.service
+
+          [Automount]
+          Where=/mnt/downloads
+          TimeoutIdleSec=60
+
+          [Install]
+          WantedBy=multi-user.target
+      register: automount_unit_downloads
+
+    - name: Create systemd override directory for Plex service
+      file:
+        path: /etc/systemd/system/plexmediaserver.service.d
+        state: directory
+        mode: '0755'
+
+    - name: Configure Plex service to require SMB mounts
+      copy:
+        dest: /etc/systemd/system/plexmediaserver.service.d/smb-mounts.conf
+        mode: '0644'
+        content: |
+          [Unit]
+          # Plex service requires all SMB mounts to be available
+          Requires=mnt-media.mount mnt-downloads.mount
+          After=mnt-media.mount mnt-downloads.mount
+
+          # If mounts fail, Plex will not start
+          # This prevents Plex from accessing wrong directories
+      register: plex_override
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: true
+      when: >
+        mount_unit_media.changed | default(false) or
+        automount_unit_media.changed | default(false) or
+        mount_unit_downloads.changed | default(false) or
+        automount_unit_downloads.changed | default(false) or
+        plex_override.changed | default(false)
+
+    - name: Enable and start automount units
+      systemd:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      loop:
+        - mnt-media.automount
+        - mnt-downloads.automount
+
+    - name: Restart Plex service to pick up mount dependencies
+      systemd:
+        name: plexmediaserver
+        state: restarted
+      when: >
+        plex_override.changed | default(false) and
+        ansible_facts.services['plexmediaserver.service'] is defined and
+        ansible_facts.services['plexmediaserver.service'].state == 'running'
 
     - name: Enable and start Plex Media Server
       systemd:

@@ -416,27 +416,34 @@ These playbooks are designed for setting up specific types of Proxmox VMs.
 -   **`setup_docker_server.yaml`**:
     -   Installs Docker and Docker Compose.
     -   Creates a `dockeruser` and sets up directories (`/mnt/docker/{appdata,config,media,pictures}`).
+    -   Configures systemd-managed SMB mounts with automatic failover protection (Docker stops if mounts fail).
     -   Basic Docker host setup without Portainer.
+    -   Fully idempotent - safe to rerun to verify or update configuration.
     -   Fetches SSH password from Bitwarden for authentication (requires `docker_pve_ssh_password_uuid` in vault).
 
 -   **`setup_docker_portainer_server.yaml`**:
     -   Extends `setup_docker_server.yaml` functionality.
     -   Installs Docker and Docker Compose.
     -   Creates a `dockeruser` and sets up directories.
+    -   Configures systemd-managed SMB mounts with automatic failover protection (Docker stops if mounts fail).
     -   Installs and configures Portainer Agent container (exposes port 9001 for remote Portainer management).
+    -   Fully idempotent - safe to rerun to verify or update configuration.
     -   Fetches SSH password from Bitwarden for authentication (requires `docker_pve_ssh_password_uuid` or `docker_pve2_ssh_password_uuid` in vault).
 
 -   **`setup_media_server.yaml`**:
-    -   Sets up a media server, including installing any necessary software.
-    -   Intended to be run on a VM with GPU passthrough for hardware transcoding (e.g., Intel Quick Sync for Plex).
+    -   Sets up a media server with Plex Media Server.
+    -   Configures systemd-managed SMB mounts with automatic failover protection (Plex stops if mounts fail).
+    -   Intended to be run on a VM with GPU passthrough for hardware transcoding (e.g., Intel Quick Sync).
+    -   Fully idempotent - safe to rerun to verify or update configuration.
+    -   Fetches SSH password from Bitwarden for authentication (requires `mediacenter_password_uuid` in vault).
 
 -   **`setup_samba_server.yaml`**:
     -   Installs and configures a Samba server for network file sharing.
-    -   Creates a `samba` user and group.
-    -   Sets up two shares:
-        -   **`Public`**: A guest-accessible share for general file sharing.
-        -   **`Private`**: A secured share accessible only by the `samba` user.
+    -   Creates a `smbuser` and sets up directory structure.
+    -   Sets up two shares: `downloads` and `media` (with subdirectories for movies, TV, music, pictures).
     -   The Samba user's password should be stored in Bitwarden and configured in `group_vars/all/secrets.yaml`.
+
+**SMB Mount Protection**: All VM setup playbooks now include systemd-managed SMB/CIFS mounts with service dependencies. This prevents Docker/Plex from starting when network shares are unavailable, protecting against data corruption from containers writing to local filesystems. If SMB shares become unavailable during runtime, systemd automatically stops dependent services. This protection is built into the setup playbooks and requires no additional configuration.
 
 ## Configuration Details
 
@@ -500,7 +507,8 @@ anterra/
 │   │   │       └── caddy_reverse_proxy.j2
 │   │   ├── gluetun/                          # VPN configuration
 │   │   │   └── configure_airvpn_certificates.yaml
-│   │   ├── issue-fixes/                      # One-time fix playbooks
+│   │   ├── issue-fixes/                      # One-time fix/migration playbooks
+│   │   │   ├── configure_smb_mount_dependencies.yaml  # Migration: fstab to systemd mounts
 │   │   │   ├── fix_portainer_agent_pairing.yaml
 │   │   │   └── fix_portainer_database_schema.yaml
 │   │   ├── proxmox/                          # Proxmox VM setup

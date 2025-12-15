@@ -141,26 +141,137 @@
         mode: '0600'
       no_log: true
 
-    # Add Samba shares to fstab
-    - name: Add Samba media share to fstab
-      lineinfile:
-        path: /etc/fstab
-        regexp: '^\S+\s+/mnt/docker/media\s+'
-        line: "//{{ samba_share_ip }}/media /mnt/docker/media cifs credentials=/etc/docker-smb-credentials,uid=dockeruser,gid=dockeruser,iocharset=utf8,noperm 0 0"
-        state: present
+    # Configure systemd mount units for SMB shares with Docker service dependencies
+    # This prevents Docker from starting when SMB shares are unavailable
+    - name: Create systemd mount unit for media share
+      copy:
+        dest: /etc/systemd/system/mnt-docker-media.mount
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=SMB mount /mnt/docker/media
+          Requires=network-online.target
+          After=network-online.target
+          Before=docker.service
 
-    - name: Add Samba downloads share to fstab
-      lineinfile:
-        path: /etc/fstab
-        regexp: '^\S+\s+/mnt/docker/downloads\s+'
-        line: "//{{ samba_share_ip }}/downloads /mnt/docker/downloads cifs credentials=/etc/docker-smb-credentials,uid=dockeruser,gid=dockeruser,iocharset=utf8,noperm 0 0"
-        state: present
+          [Mount]
+          What=//{{ samba_share_ip }}/media
+          Where=/mnt/docker/media
+          Type=cifs
+          Options=credentials=/etc/docker-smb-credentials,uid=dockeruser,gid=dockeruser,iocharset=utf8,noperm,_netdev,x-systemd.automount,x-systemd.idle-timeout=60,x-systemd.mount-timeout=90s
+          TimeoutSec=90
 
-    - name: Mount all filesystems from fstab
-      command: mount -a
-      register: mount_result
-      changed_when: mount_result.rc == 0 and mount_result.stdout != ""
-      failed_when: false
+          [Install]
+          WantedBy=multi-user.target
+      register: mount_unit_media
+
+    - name: Create systemd automount unit for media share
+      copy:
+        dest: /etc/systemd/system/mnt-docker-media.automount
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Automount for /mnt/docker/media
+          Requires=network-online.target
+          After=network-online.target
+          Before=docker.service
+
+          [Automount]
+          Where=/mnt/docker/media
+          TimeoutIdleSec=60
+
+          [Install]
+          WantedBy=multi-user.target
+      register: automount_unit_media
+
+    - name: Create systemd mount unit for downloads share
+      copy:
+        dest: /etc/systemd/system/mnt-docker-downloads.mount
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=SMB mount /mnt/docker/downloads
+          Requires=network-online.target
+          After=network-online.target
+          Before=docker.service
+
+          [Mount]
+          What=//{{ samba_share_ip }}/downloads
+          Where=/mnt/docker/downloads
+          Type=cifs
+          Options=credentials=/etc/docker-smb-credentials,uid=dockeruser,gid=dockeruser,iocharset=utf8,noperm,_netdev,x-systemd.automount,x-systemd.idle-timeout=60,x-systemd.mount-timeout=90s
+          TimeoutSec=90
+
+          [Install]
+          WantedBy=multi-user.target
+      register: mount_unit_downloads
+
+    - name: Create systemd automount unit for downloads share
+      copy:
+        dest: /etc/systemd/system/mnt-docker-downloads.automount
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Automount for /mnt/docker/downloads
+          Requires=network-online.target
+          After=network-online.target
+          Before=docker.service
+
+          [Automount]
+          Where=/mnt/docker/downloads
+          TimeoutIdleSec=60
+
+          [Install]
+          WantedBy=multi-user.target
+      register: automount_unit_downloads
+
+    - name: Create systemd override directory for Docker service
+      file:
+        path: /etc/systemd/system/docker.service.d
+        state: directory
+        mode: '0755'
+
+    - name: Configure Docker service to require SMB mounts
+      copy:
+        dest: /etc/systemd/system/docker.service.d/smb-mounts.conf
+        mode: '0644'
+        content: |
+          [Unit]
+          # Docker service requires all SMB mounts to be available
+          Requires=mnt-docker-media.mount mnt-docker-downloads.mount
+          After=mnt-docker-media.mount mnt-docker-downloads.mount
+
+          # If mounts fail, Docker will not start
+          # This prevents containers from writing to local filesystem
+      register: docker_override
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: true
+      when: >
+        mount_unit_media.changed | default(false) or
+        automount_unit_media.changed | default(false) or
+        mount_unit_downloads.changed | default(false) or
+        automount_unit_downloads.changed | default(false) or
+        docker_override.changed | default(false)
+
+    - name: Enable and start automount units
+      systemd:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      loop:
+        - mnt-docker-media.automount
+        - mnt-docker-downloads.automount
+
+    - name: Restart Docker service to pick up mount dependencies
+      systemd:
+        name: docker
+        state: restarted
+      when: >
+        docker_override.changed | default(false) and
+        ansible_facts.services['docker.service'] is defined and
+        ansible_facts.services['docker.service'].state == 'running'
 
     # Install Portainer
     - name: Create Portainer volume

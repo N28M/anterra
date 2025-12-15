@@ -1,0 +1,388 @@
+---
+# This playbook configures SMB/CIFS mounts with systemd dependencies to prevent
+# Docker containers from running when SMB shares are unavailable. This solves the
+# problem of containers writing to local filesystems when network shares are down.
+#
+# IMPORTANT: This playbook will stop Docker service during configuration.
+# Plan a maintenance window before running.
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yaml playbooks/common/configure_smb_mount_dependencies.yaml
+
+- name: Fetch Bitwarden Secrets
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: always
+  tasks:
+    - name: Fetch docker_pve SSH password from Bitwarden
+      shell: bws secret get "{{ docker_pve_ssh_password_uuid }}" --access-token "{{ bws_access_token }}" --output json
+      register: docker_pve_ssh_password_result
+      no_log: true
+      changed_when: false
+      when: docker_pve_ssh_password_uuid is defined
+
+    - name: Set docker_pve SSH password fact
+      set_fact:
+        docker_pve_ssh_password: "{{ (docker_pve_ssh_password_result.stdout | from_json).value }}"
+      no_log: true
+      when:
+        - docker_pve_ssh_password_uuid is defined
+        - docker_pve_ssh_password_result.stdout is defined
+
+    - name: Fetch docker_pve2 SSH password from Bitwarden
+      shell: bws secret get {{ docker_pve2_ssh_password_uuid }} --access-token "{{ bws_access_token }}" --output json
+      register: docker_pve2_ssh_password_result
+      changed_when: false
+      no_log: true
+      when: docker_pve2_ssh_password_uuid is defined
+
+    - name: Set docker_pve2 SSH password fact
+      set_fact:
+        docker_pve2_ssh_password: "{{ (docker_pve2_ssh_password_result.stdout | from_json).value }}"
+      no_log: true
+      when:
+        - docker_pve2_ssh_password_uuid is defined
+        - docker_pve2_ssh_password_result.stdout is defined
+
+    - name: Fetch mediacenter password from Bitwarden
+      shell: bws secret get {{ mediacenter_password_uuid }} --access-token "{{ bws_access_token }}" --output json
+      register: mediacenter_password_result
+      changed_when: false
+      no_log: true
+      when: mediacenter_password_uuid is defined
+
+    - name: Set mediacenter password fact
+      set_fact:
+        mediacenter_password: "{{ (mediacenter_password_result.stdout | from_json).value }}"
+      no_log: true
+      when:
+        - mediacenter_password_uuid is defined
+        - mediacenter_password_result.stdout is defined
+
+    - name: Add SSH passwords to hosts
+      add_host:
+        name: "{{ item.name }}"
+        ansible_ssh_pass: "{{ item.password }}"
+        ansible_become_pass: "{{ item.password }}"
+      no_log: true
+      loop:
+        - { name: 'docker_pve', password: "{{ docker_pve_ssh_password }}" }
+        - { name: 'docker_pve2', password: "{{ docker_pve2_ssh_password }}" }
+        - { name: 'mediacenter', password: "{{ mediacenter_password }}" }
+      when: item.password is defined
+
+- name: Configure SMB Mount Dependencies for Docker Hosts
+  hosts: docker_pve,docker_pve2,mediacenter
+  become: true
+  gather_facts: true
+
+  vars:
+    # Docker service will wait this long for mounts before failing
+    mount_timeout: 90
+
+    # Map of mount configurations per host
+    # Each entry defines: mount_point, smb_share, credentials_file, mount_user, mount_group
+    host_mount_config:
+      docker_pve:
+        - mount_point: /mnt/docker/media
+          smb_share: "//{{ samba_share_ip }}/media"
+          credentials_file: /etc/docker-smb-credentials
+          mount_user: dockeruser
+          mount_group: dockeruser
+        - mount_point: /mnt/docker/pictures
+          smb_share: "//{{ samba_share_ip }}/media/pictures"
+          credentials_file: /etc/docker-smb-credentials
+          mount_user: dockeruser
+          mount_group: dockeruser
+
+      docker_pve2:
+        - mount_point: /mnt/docker/media
+          smb_share: "//{{ samba_share_ip }}/media"
+          credentials_file: /etc/docker-smb-credentials
+          mount_user: dockeruser
+          mount_group: dockeruser
+        - mount_point: /mnt/docker/downloads
+          smb_share: "//{{ samba_share_ip }}/downloads"
+          credentials_file: /etc/docker-smb-credentials
+          mount_user: dockeruser
+          mount_group: dockeruser
+
+      mediacenter:
+        - mount_point: /mnt/media
+          smb_share: "//{{ samba_share_ip }}/media"
+          credentials_file: /etc/plex-smb-credentials
+          mount_user: plex
+          mount_group: plex
+        - mount_point: /mnt/downloads
+          smb_share: "//{{ samba_share_ip }}/downloads"
+          credentials_file: /etc/plex-smb-credentials
+          mount_user: plex
+          mount_group: plex
+
+  tasks:
+    # Safety check: Verify Docker is installed before proceeding
+    - name: Check if Docker is installed
+      stat:
+        path: /usr/bin/docker
+      register: docker_binary
+      when: "'mediacenter' not in group_names"
+
+    - name: Check if Plex is installed
+      stat:
+        path: /usr/lib/plexmediaserver
+      register: plex_binary
+      when: "'mediacenter' in group_names"
+
+    # Stop Docker to prevent containers from accessing mounts during reconfiguration
+    - name: Stop Docker service before reconfiguring mounts
+      systemd:
+        name: docker
+        state: stopped
+      when:
+        - "'mediacenter' not in group_names"
+        - docker_binary.stat.exists | default(false)
+
+    - name: Stop Plex service before reconfiguring mounts
+      systemd:
+        name: plexmediaserver
+        state: stopped
+      when:
+        - "'mediacenter' in group_names"
+        - plex_binary.stat.exists | default(false)
+
+    # Unmount existing mounts (will be remounted by systemd)
+    - name: Unmount existing SMB shares
+      mount:
+        path: "{{ item.mount_point }}"
+        state: unmounted
+      loop: "{{ host_mount_config[inventory_hostname] }}"
+      failed_when: false
+
+    # Remove old fstab entries (will be managed by systemd instead)
+    - name: Remove old fstab entries for SMB mounts
+      lineinfile:
+        path: /etc/fstab
+        regexp: "^\\S+\\s+{{ item.mount_point | regex_escape }}\\s+"
+        state: absent
+      loop: "{{ host_mount_config[inventory_hostname] }}"
+
+    # Create systemd mount units with proper dependencies and failure handling
+    # Systemd requires mount unit names to match the mount point path
+    # Example: /mnt/docker/media becomes mnt-docker-media.mount
+    - name: Create systemd mount units for SMB shares
+      copy:
+        dest: "/etc/systemd/system/{{ item.mount_point[1:] | replace('/', '-') }}.mount"
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=SMB mount {{ item.mount_point }}
+          Requires=network-online.target
+          After=network-online.target
+          Before=docker.service
+
+          [Mount]
+          What={{ item.smb_share }}
+          Where={{ item.mount_point }}
+          Type=cifs
+          Options=credentials={{ item.credentials_file }},uid={{ item.mount_user }},gid={{ item.mount_group }},iocharset=utf8,noperm,_netdev,x-systemd.automount,x-systemd.idle-timeout=60,x-systemd.mount-timeout={{ mount_timeout }}s
+          TimeoutSec={{ mount_timeout }}
+
+          [Install]
+          WantedBy=multi-user.target
+      loop: "{{ host_mount_config[inventory_hostname] }}"
+      register: mount_units_created
+
+    # Create automount units for automatic mounting when accessed
+    # This allows the system to boot even if SMB server is temporarily unavailable
+    - name: Create systemd automount units for SMB shares
+      copy:
+        dest: "/etc/systemd/system/{{ item.mount_point[1:] | replace('/', '-') }}.automount"
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Automount for {{ item.mount_point }}
+          Requires=network-online.target
+          After=network-online.target
+          Before=docker.service
+
+          [Automount]
+          Where={{ item.mount_point }}
+          TimeoutIdleSec=60
+
+          [Install]
+          WantedBy=multi-user.target
+      loop: "{{ host_mount_config[inventory_hostname] }}"
+      register: automount_units_created
+
+    # Configure Docker service to depend on mounts being available
+    # This prevents Docker from starting if mounts fail
+    - name: Create systemd override directory for Docker service
+      file:
+        path: /etc/systemd/system/docker.service.d
+        state: directory
+        mode: '0755'
+      when: "'mediacenter' not in group_names"
+
+    - name: Configure Docker service to require SMB mounts
+      copy:
+        dest: /etc/systemd/system/docker.service.d/smb-mounts.conf
+        mode: '0644'
+        content: |
+          [Unit]
+          # Docker service requires all SMB mounts to be available
+          {% for mount in host_mount_config[inventory_hostname] %}
+          Requires={{ mount.mount_point[1:] | replace('/', '-') }}.mount
+          After={{ mount.mount_point[1:] | replace('/', '-') }}.mount
+          {% endfor %}
+
+          # If mounts fail, Docker will not start
+          # This prevents containers from writing to local filesystem
+      when: "'mediacenter' not in group_names"
+      register: docker_override_created
+
+    # Configure Plex service to depend on mounts being available
+    - name: Create systemd override directory for Plex service
+      file:
+        path: /etc/systemd/system/plexmediaserver.service.d
+        state: directory
+        mode: '0755'
+      when: "'mediacenter' in group_names"
+
+    - name: Configure Plex service to require SMB mounts
+      copy:
+        dest: /etc/systemd/system/plexmediaserver.service.d/smb-mounts.conf
+        mode: '0644'
+        content: |
+          [Unit]
+          # Plex service requires all SMB mounts to be available
+          {% for mount in host_mount_config[inventory_hostname] %}
+          Requires={{ mount.mount_point[1:] | replace('/', '-') }}.mount
+          After={{ mount.mount_point[1:] | replace('/', '-') }}.mount
+          {% endfor %}
+
+          # If mounts fail, Plex will not start
+          # This prevents Plex from accessing wrong directories
+      when: "'mediacenter' in group_names"
+      register: plex_override_created
+
+    # Reload systemd to recognize new units
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: true
+      when: >
+        mount_units_created.changed or
+        automount_units_created.changed or
+        docker_override_created.changed | default(false) or
+        plex_override_created.changed | default(false)
+
+    # Enable and start automount units (not mount units directly)
+    # Automount will trigger actual mount when path is accessed
+    - name: Enable and start automount units
+      systemd:
+        name: "{{ item.mount_point[1:] | replace('/', '-') }}.automount"
+        enabled: true
+        state: started
+      loop: "{{ host_mount_config[inventory_hostname] }}"
+
+    # Verify mounts are accessible before starting services
+    - name: Wait for mounts to become available
+      wait_for:
+        path: "{{ item.mount_point }}"
+        state: present
+        timeout: "{{ mount_timeout }}"
+      loop: "{{ host_mount_config[inventory_hostname] }}"
+
+    # Verify mounts are writable
+    - name: Test mount write access
+      file:
+        path: "{{ item.mount_point }}/.mount_test"
+        state: touch
+        mode: '0644'
+      loop: "{{ host_mount_config[inventory_hostname] }}"
+      register: mount_write_test
+      failed_when: false
+
+    - name: Report mount write access status
+      debug:
+        msg: "Mount {{ item.item.mount_point }} is {{ 'writable' if item.failed == false else 'READ-ONLY or FAILED' }}"
+      loop: "{{ mount_write_test.results }}"
+      loop_control:
+        label: "{{ item.item.mount_point }}"
+
+    # Start Docker service with new configuration
+    - name: Start Docker service with mount dependencies
+      systemd:
+        name: docker
+        state: started
+        enabled: true
+      when:
+        - "'mediacenter' not in group_names"
+        - docker_binary.stat.exists | default(false)
+      register: docker_start_result
+      failed_when: false
+
+    - name: Check Docker service status
+      systemd:
+        name: docker
+      register: docker_status
+      when: "'mediacenter' not in group_names"
+      failed_when: false
+
+    - name: Report Docker service status
+      debug:
+        msg: "Docker service is {{ docker_status.status.ActiveState | default('unknown') }}"
+      when: "'mediacenter' not in group_names"
+
+    # Start Plex service with new configuration
+    - name: Start Plex service with mount dependencies
+      systemd:
+        name: plexmediaserver
+        state: started
+        enabled: true
+      when:
+        - "'mediacenter' in group_names"
+        - plex_binary.stat.exists | default(false)
+      register: plex_start_result
+      failed_when: false
+
+    - name: Check Plex service status
+      systemd:
+        name: plexmediaserver
+      register: plex_status
+      when: "'mediacenter' in group_names"
+      failed_when: false
+
+    - name: Report Plex service status
+      debug:
+        msg: "Plex service is {{ plex_status.status.ActiveState | default('unknown') }}"
+      when: "'mediacenter' in group_names"
+
+    # Summary of changes
+    - name: Configuration summary
+      debug:
+        msg: |
+          SMB mount dependencies configured successfully!
+
+          What changed:
+          - Converted fstab mounts to systemd mount units
+          - Added network dependency (_netdev) to all mounts
+          - Configured {{ mount_timeout }}s timeout for mount failures
+          - {{ 'Docker' if 'mediacenter' not in group_names else 'Plex' }} service now requires mounts to be available
+
+          How this protects your data:
+          - If SMB server goes down, {{ 'Docker' if 'mediacenter' not in group_names else 'Plex' }} will stop automatically
+          - Containers cannot start without mounts being available
+          - Prevents duplicate files and data corruption
+
+          Systemd units created:
+          {% for mount in host_mount_config[inventory_hostname] %}
+          - {{ mount.mount_point[1:] | replace('/', '-') }}.mount
+          - {{ mount.mount_point[1:] | replace('/', '-') }}.automount
+          {% endfor %}
+
+          Service override created:
+          - /etc/systemd/system/{{ 'docker' if 'mediacenter' not in group_names else 'plexmediaserver' }}.service.d/smb-mounts.conf
+
+          To verify mounts: systemctl list-units | grep mount
+          To check {{ 'Docker' if 'mediacenter' not in group_names else 'Plex' }} dependencies: systemctl show {{ 'docker' if 'mediacenter' not in group_names else 'plexmediaserver' }} | grep -E '(Requires|After)'

@@ -114,6 +114,21 @@
         groups: docker
         append: true
 
+    # Install rclone for Zerobyte backup integration
+    - name: Install rclone
+      apt:
+        name: rclone
+        state: present
+        update_cache: true
+
+    - name: Create rclone config directory for dockeruser
+      file:
+        path: /home/{{ docker_user }}/.config/rclone
+        state: directory
+        owner: "{{ docker_user }}"
+        group: "{{ docker_user }}"
+        mode: '0700'
+
     # Create Docker data directories
     - name: Create Docker data directories
       file:

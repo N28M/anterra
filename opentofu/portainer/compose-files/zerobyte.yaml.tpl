@@ -7,6 +7,7 @@ services:
       - TZ=${docker_timezone}
     volumes:
       - /var/lib/zerobyte:/var/lib/zerobyte
+      - /home/dockeruser/.config/rclone:/root/.config/rclone:ro
     ports:
       - "4096:4096"
     cap_add:

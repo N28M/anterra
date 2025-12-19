@@ -387,6 +387,79 @@ The tailscale-airvpn stack uses separate AirVPN certificates from the regular gl
 
 **Reference**: For detailed architecture and best practices, see [Unlock Secure Freedom: Route All Traffic Through Tailscale + Gluetun](https://fathi.me/unlock-secure-freedom-route-all-traffic-through-tailscale-gluetun/)
 
+### Papra (Document Management System)
+
+Papra is a self-hosted document management system for organizing, storing, and managing documents with a clean web interface.
+
+**Deployment Details**:
+- **Stack Location**: `opentofu/portainer/compose-files/papra.yaml.tpl`
+- **Container Port**: 1221
+- **Deployment Endpoint**: docker_pve2
+- **DNS Management**: Cloudflare
+- **Reverse Proxy**: Caddy instance via Tailscale
+
+**Stack Components**:
+- **Web**: Main Papra application (ghcr.io/papra-hq/papra:latest)
+- **Data Volume**: papra_data for persistent storage
+
+**Initial Setup**:
+1. Deploy the stack via OpenTofu Portainer configuration:
+   ```bash
+   cd opentofu/portainer
+   tofu apply
+   ```
+2. The application will be accessible at https://papra.your-domain.com after DNS and reverse proxy are configured
+3. Configure your document folders and upload settings through the web interface
+
+**Configuration**:
+- `TZ`: Timezone for the application
+- `APP_BASE_URL`: Application URL (automatically set to https://papra.your-domain.com)
+
+### Zerobyte (Backup and Snapshot Solution)
+
+Zerobyte is a backup and snapshot solution that works with rclone for cloud storage integration. It uses FUSE to mount and manage backups efficiently.
+
+**Deployment Details**:
+- **Stack Location**: `opentofu/portainer/compose-files/zerobyte.yaml.tpl`
+- **Container Port**: 4096
+- **Deployment Endpoint**: docker_pve2
+- **DNS Management**: Not required (backend backup service)
+- **Special Requirements**: Requires rclone configuration and FUSE device access
+
+**Stack Components**:
+- **Web**: Main Zerobyte application (ghcr.io/nicotsx/zerobyte:v0.19)
+- **Storage**: `/var/lib/zerobyte` for backup data
+- **rclone Integration**: Reads rclone configuration from `/home/dockeruser/.config/rclone`
+
+**Prerequisites**:
+1. rclone must be installed and configured on the Docker host
+2. rclone configuration must be available at `/home/dockeruser/.config/rclone`
+3. Docker host must have access to `/dev/fuse` device
+4. AppArmor must be configured to allow FUSE operations
+
+**Initial Setup**:
+1. Install and configure rclone on the Docker host:
+   ```bash
+   rclone config
+   # Configure your cloud storage provider (S3, Google Drive, OneDrive, etc.)
+   ```
+2. Ensure rclone configuration is owned by dockeruser:
+   ```bash
+   sudo chown -R dockeruser:dockeruser /home/dockeruser/.config/rclone
+   ```
+3. Deploy the stack via OpenTofu:
+   ```bash
+   cd opentofu/portainer
+   tofu apply
+   ```
+4. Access the web interface at http://docker-host-ip:4096
+5. Configure backup destinations and schedules through the web interface
+
+**Important Security Notes**:
+- The container has elevated capabilities (`SYS_ADMIN`) and FUSE device access for backup operations
+- AppArmor is set to unconfined for this container to allow FUSE operations
+- Ensure your rclone credentials are securely configured before deployment
+
 ## Available Playbooks
 
 This section details the Ansible playbooks available in this repository.
@@ -541,8 +614,10 @@ anterra/
             ├── jotty.yaml.tpl                # Note-taking with OIDC
             ├── karakeep.yaml.tpl             # Bookmark manager with AI tagging
             ├── n8n.yaml.tpl                  # Workflow automation
+            ├── papra.yaml.tpl                # Document management system
             ├── tailscale-airvpn.yaml.tpl     # Tailscale exit node via VPN
-            └── watchtower.yaml.tpl           # Container auto-updater
+            ├── watchtower.yaml.tpl           # Container auto-updater
+            └── zerobyte.yaml.tpl             # Backup and snapshot solution
 ```
 
 ## Security

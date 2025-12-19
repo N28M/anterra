@@ -79,6 +79,10 @@
         owner: "{{ samba_user }}"
         group: "{{ samba_user }}"
         mode: '0775'
+      - path: "{{ datastore_path }}/documents"
+        owner: "{{ samba_user }}"
+        group: "{{ samba_user }}"
+        mode: '0775'
 
   tasks:
     - name: Set SSH credentials for samba_share
@@ -149,6 +153,17 @@
           [media]
              comment = Media Share (Movies, TV, Music)
              path = {{ datastore_path }}/media
+             browseable = yes
+             writable = yes
+             valid users = {{ samba_user }}
+             create mask = 0664
+             directory mask = 0775
+             force user = {{ samba_user }}
+             force group = {{ samba_user }}
+
+          [documents]
+             comment = Documents Share
+             path = {{ datastore_path }}/documents
              browseable = yes
              writable = yes
              valid users = {{ samba_user }}

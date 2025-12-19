@@ -143,6 +143,7 @@
         - /mnt/docker/config
         - /mnt/docker/media
         - /mnt/docker/downloads
+        - /mnt/docker/documents
 
     # Create Samba credentials file
     - name: Create Samba credentials file
@@ -238,6 +239,46 @@
           WantedBy=multi-user.target
       register: automount_unit_downloads
 
+    - name: Create systemd mount unit for documents share
+      copy:
+        dest: /etc/systemd/system/mnt-docker-documents.mount
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=SMB mount /mnt/docker/documents
+          Requires=network-online.target
+          After=network-online.target
+          Before=docker.service
+
+          [Mount]
+          What=//{{ samba_share_ip }}/documents
+          Where=/mnt/docker/documents
+          Type=cifs
+          Options=credentials=/etc/docker-smb-credentials,uid=dockeruser,gid=dockeruser,iocharset=utf8,noperm,_netdev,x-systemd.mount-timeout=90s
+          TimeoutSec=90
+
+          [Install]
+          WantedBy=multi-user.target
+      register: mount_unit_documents
+
+    - name: Create systemd automount unit for documents share
+      copy:
+        dest: /etc/systemd/system/mnt-docker-documents.automount
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Automount for /mnt/docker/documents
+          Requires=network-online.target
+          After=network-online.target
+          Before=docker.service
+
+          [Automount]
+          Where=/mnt/docker/documents
+
+          [Install]
+          WantedBy=multi-user.target
+      register: automount_unit_documents
+
     - name: Create systemd override directory for Docker service
       file:
         path: /etc/systemd/system/docker.service.d
@@ -251,8 +292,8 @@
         content: |
           [Unit]
           # Docker service requires all SMB mounts to be available
-          Requires=mnt-docker-media.mount mnt-docker-downloads.mount
-          After=mnt-docker-media.mount mnt-docker-downloads.mount
+          Requires=mnt-docker-media.mount mnt-docker-downloads.mount mnt-docker-documents.mount
+          After=mnt-docker-media.mount mnt-docker-downloads.mount mnt-docker-documents.mount
 
           # If mounts fail, Docker will not start
           # This prevents containers from writing to local filesystem
@@ -266,6 +307,8 @@
         automount_unit_media.changed | default(false) or
         mount_unit_downloads.changed | default(false) or
         automount_unit_downloads.changed | default(false) or
+        mount_unit_documents.changed | default(false) or
+        automount_unit_documents.changed | default(false) or
         docker_override.changed | default(false)
 
     - name: Enable and start automount units
@@ -276,6 +319,7 @@
       loop:
         - mnt-docker-media.automount
         - mnt-docker-downloads.automount
+        - mnt-docker-documents.automount
 
     - name: Restart Docker service to pick up mount dependencies
       systemd:
@@ -329,6 +373,7 @@
           - /mnt/docker/config (for container configs)
           - /mnt/docker/media (Samba mount)
           - /mnt/docker/downloads (Samba mount)
+          - /mnt/docker/documents (Samba mount)
 
           Access Portainer at:
           - HTTPS: https://{{ ansible_host }}:9443

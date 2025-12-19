@@ -13,10 +13,11 @@ docker_user_pgid_secret_id = "fee8aa06-03bc-4ef6-bcd0-b39a005d9064"
 docker_timezone = "Asia/Kolkata"
 
 # Docker paths
-docker_config_path    = "/mnt/docker/config"
-docker_data_path      = "/mnt/docker/appdata"
-docker_media_path     = "/mnt/docker/media"
-docker_downloads_path = "/mnt/docker/downloads"
+docker_config_path      = "/mnt/docker/config"
+docker_data_path        = "/mnt/docker/appdata"
+docker_media_path       = "/mnt/docker/media"
+docker_downloads_path   = "/mnt/docker/downloads"
+docker_documents_path   = "/mnt/docker/documents"
 
 # Bitwarden secret IDs for Gluetun configuration
 vpn_input_port_secret_id  = "95a1d37d-700b-4898-9578-b39a005cb0ce"

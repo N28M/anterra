@@ -8,6 +8,7 @@ services:
     volumes:
       - /var/lib/zerobyte:/var/lib/zerobyte
       - /home/dockeruser/.config/rclone:/root/.config/rclone:ro
+      - ${docker_documents_path}:/mnt/documents:ro
     ports:
       - "4096:4096"
     cap_add:

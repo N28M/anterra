@@ -10,8 +10,16 @@ ansible/vault/.vault_password
 **/override.tf.json
 **/*_override.tf
 **/*_override.tf.json
+**/override.tofu
+**/override.tofu.json
+**/*_override.tofu
+**/*_override.tofu.json
+**/*.tfplan
+**/*.auto.tfvars.backup
 **/secrets.auto.tfvars
 **/*.secret.tfvars
+**/*.pem
+**/*.key
 **/.env
 **/run.sh
 **/.bitwarden/

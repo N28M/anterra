@@ -152,4 +152,7 @@ services:
       - ${docker_config_path}/profilarr/config:/config
     environment:
       - TZ=${docker_timezone}
+      - GIT_USER_NAME=${git_user_name}
+      - GIT_USER_EMAIL=${git_user_email}
+      - PROFILARR_PAT=${profilarr_pat}
     restart: always

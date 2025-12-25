@@ -220,3 +220,24 @@ variable "domain_name_secret_id" {
   type        = string
   sensitive   = true
 }
+
+# Profilarr Git user name (Bitwarden secret ID)
+variable "git_user_name_secret_id" {
+  description = "The Bitwarden secret ID for Profilarr Git user name"
+  type        = string
+  sensitive   = true
+}
+
+# Profilarr Git user email (Bitwarden secret ID)
+variable "git_user_email_secret_id" {
+  description = "The Bitwarden secret ID for Profilarr Git user email"
+  type        = string
+  sensitive   = true
+}
+
+# Profilarr personal access token (Bitwarden secret ID)
+variable "profilarr_pat_secret_id" {
+  description = "The Bitwarden secret ID for Profilarr personal access token"
+  type        = string
+  sensitive   = true
+}

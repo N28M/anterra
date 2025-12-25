@@ -52,3 +52,8 @@ jotty_oidc_client_secret_secret_id = "2aa97515-6dc9-47a3-9d25-b3aa004af0ee"
 
 # Domain name
 domain_name_secret_id = "ad518b08-eb55-4eb3-a040-b3b10077183d"
+
+# Profilarr configuration
+git_user_name_secret_id = "75c9e41b-7fba-47df-9a9e-b3be00624c2e"
+git_user_email_secret_id = "b5166a34-6849-4ab1-aa0d-b3be006292d5"
+profilarr_pat_secret_id = "bf724d98-7499-4a0e-ba3f-b3be0063bf14"

@@ -43,6 +43,9 @@ resource "portainer_stack" "gluetun" {
     docker_downloads_path = var.docker_downloads_path
     vpn_input_port        = data.bitwarden_secret.vpn_input_port.value
     outbound_subnet       = data.bitwarden_secret.outbound_subnet.value
+    git_user_name         = data.bitwarden_secret.git_user_name.value
+    git_user_email        = data.bitwarden_secret.git_user_email.value
+    profilarr_pat         = data.bitwarden_secret.profilarr_pat.value
   })
 }
 

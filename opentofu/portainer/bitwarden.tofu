@@ -90,3 +90,18 @@ data "bitwarden_secret" "jotty_oidc_client_secret" {
 data "bitwarden_secret" "domain_name" {
   id = var.domain_name_secret_id
 }
+
+# Fetch Profilarr Git user name from Bitwarden Secrets Manager
+data "bitwarden_secret" "git_user_name" {
+  id = var.git_user_name_secret_id
+}
+
+# Fetch Profilarr Git user email from Bitwarden Secrets Manager
+data "bitwarden_secret" "git_user_email" {
+  id = var.git_user_email_secret_id
+}
+
+# Fetch Profilarr personal access token from Bitwarden Secrets Manager
+data "bitwarden_secret" "profilarr_pat" {
+  id = var.profilarr_pat_secret_id
+}

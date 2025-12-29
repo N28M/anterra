@@ -432,33 +432,51 @@ Zerobyte is a backup and snapshot solution that works with rclone for cloud stor
 - **rclone Integration**: Reads rclone configuration from `/home/dockeruser/.config/rclone`
 
 **Prerequisites**:
-1. rclone must be installed and configured on the Docker host
-2. rclone configuration must be available at `/home/dockeruser/.config/rclone`
-3. Docker host must have access to `/dev/fuse` device
-4. AppArmor must be configured to allow FUSE operations
+1. rclone must be installed on docker_pve2
+2. Docker host must have access to `/dev/fuse` device
+3. Bitwarden secrets configured for cloud storage providers
 
-**Initial Setup**:
-1. Install and configure rclone on the Docker host:
+**Setup Steps**:
+
+1. Configure rclone using the automated playbook:
    ```bash
-   rclone config
-   # Configure your cloud storage provider (S3, Google Drive, OneDrive, etc.)
+   cd ansible
+   ansible-playbook -i inventory/hosts.yaml playbooks/common/configure_rclone.yaml
    ```
-2. Ensure rclone configuration is owned by dockeruser:
-   ```bash
-   sudo chown -R dockeruser:dockeruser /home/dockeruser/.config/rclone
-   ```
-3. Deploy the stack via OpenTofu:
+
+   This playbook automatically:
+   - Fetches OAuth credentials from Bitwarden
+   - Configures Google Drive, OneDrive (and optionally Dropbox) remotes
+   - Creates rclone configuration at `/home/dockeruser/.config/rclone`
+   - Sets proper file permissions (0600)
+
+2. Deploy the Zerobyte stack via OpenTofu:
    ```bash
    cd opentofu/portainer
    tofu apply
    ```
-4. Access the web interface at http://docker-host-ip:4096
-5. Configure backup destinations and schedules through the web interface
+
+3. Access the web interface at the configured URL
+4. Configure backup destinations and schedules through the web interface
+
+**Required Bitwarden Secrets**:
+
+For Google Drive:
+- `gdrive_client_id_secret_id` - OAuth client ID from Google Cloud Console
+- `gdrive_client_secret_secret_id` - OAuth client secret
+- `gdrive_token_secret_id` - OAuth token (from `rclone authorize "drive"`)
+
+For OneDrive:
+- `onedrive_client_id_secret_id` - Azure AD client ID
+- `onedrive_client_secret_secret_id` - Azure AD client secret
+- `onedrive_token_secret_id` - OAuth token (from `rclone authorize "onedrive"`)
 
 **Important Security Notes**:
 - The container has elevated capabilities (`SYS_ADMIN`) and FUSE device access for backup operations
 - AppArmor is set to unconfined for this container to allow FUSE operations
-- Ensure your rclone credentials are securely configured before deployment
+- OAuth tokens are automatically refreshed by rclone
+- rclone configuration is mounted read-only into the container
+- All credentials are securely stored in Bitwarden
 
 ## Available Playbooks
 
@@ -472,7 +490,7 @@ These playbooks are intended to be run on all or most of your VMs.
 -   **`install_bitwarden.yaml`**: Installs the Bitwarden Secrets Manager CLI (`bws`).
 -   **`install_opentofu.yaml`**: Installs OpenTofu.
 -   **`install_tailscale.yaml`**: Installs and configures Tailscale for secure networking.
--   **`configure_rclone.yaml`**: Configures rclone with cloud storage providers (Google Drive, OneDrive, Dropbox). Fetches credentials from Bitwarden and creates the rclone configuration file with proper permissions. Supports service account authentication for Google Drive and OAuth refresh tokens for OneDrive and Dropbox.
+-   **`configure_rclone.yaml`**: Configures rclone with cloud storage providers (Google Drive, OneDrive, Dropbox). Fetches OAuth credentials from Bitwarden and creates the rclone configuration file with proper permissions. Uses OAuth authentication with automatic token refresh for all providers.
 
 ### Caddy Playbooks (`playbooks/caddy/`)
 
@@ -592,6 +610,7 @@ anterra/
 │   │   ├── gluetun/                          # VPN configuration
 │   │   │   └── configure_airvpn_certificates.yaml
 │   │   ├── issue-fixes/                      # One-time fix/migration playbooks
+│   │   │   ├── cleanup_rclone.yaml           # Remove rclone configuration
 │   │   │   ├── configure_smb_mount_dependencies.yaml  # Migration: fstab to systemd mounts
 │   │   │   ├── fix_portainer_agent_pairing.yaml
 │   │   │   └── fix_portainer_database_schema.yaml

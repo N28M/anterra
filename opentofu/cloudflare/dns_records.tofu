@@ -66,7 +66,8 @@ locals {
     }
     "immich" = {
       content = local.vps_reverse_proxy_ip
-      proxied = true
+      # DNS-only mode (proxied = false) to comply with Cloudflare ToS
+      # Media-heavy services (photos/videos) cannot use Cloudflare proxy
     }
     "keep" = {
       content = local.vps_reverse_proxy_ip
@@ -78,7 +79,8 @@ locals {
     }
     "plex" = {
       content = local.vps_reverse_proxy_ip
-      proxied = true
+      # DNS-only mode (proxied = false) to comply with Cloudflare ToS
+      # Media streaming services cannot use Cloudflare proxy
     }
     "seerr" = {
       content = local.vps_reverse_proxy_ip

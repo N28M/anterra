@@ -155,6 +155,7 @@ First, define a DNS A record for your new service in the Cloudflare module.
     - The key (`"new-service"`) will be the subdomain.
     - `content` should be the IP address of your reverse proxy, fetched from Bitwarden via `local.homelab_reverse_proxy_ip`.
     - Set `proxied = true` if the service should be routed through Cloudflare's proxy (for external services).
+    - **IMPORTANT**: Do NOT set `proxied = true` for media-heavy services (video streaming, photo galleries, etc.) as this violates Cloudflare's Terms of Service. Services like Plex, Immich, Jellyfin, and similar must use DNS-only mode (`proxied = false` or omit the proxied attribute).
 
 3.  **Apply the changes**:
     ```bash

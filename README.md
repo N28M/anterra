@@ -174,7 +174,7 @@ If your new service is a Docker container, add it to the Portainer OpenTofu modu
     ```yaml
     services:
       watchtower:
-        image: containrrr/watchtower:latest
+        image: nickfedor/watchtower
         container_name: watchtower
         restart: unless-stopped
         environment:
@@ -183,6 +183,8 @@ If your new service is a Docker container, add it to the Portainer OpenTofu modu
         volumes:
           - /var/run/docker.sock:/var/run/docker.sock
     ```
+
+    **Note**: Uses the `nickfedor/watchtower` fork, which is actively maintained and compatible with Docker 28+. The original `containrrr/watchtower` is no longer maintained.
 
 2.  **Define the stack in `stacks.tofu`**:
     - Open `opentofu/portainer/stacks.tofu`.
@@ -594,6 +596,7 @@ These playbooks are intended to be run on all or most of your VMs.
 These playbooks are designed for setting up specific types of Proxmox VMs.
 
 -   **`setup_docker_server.yaml`**:
+    -   Configures DNS using systemd-resolved to ensure proper name resolution.
     -   Installs Docker and Docker Compose.
     -   Creates a `dockeruser` and sets up directories (`/mnt/docker/{appdata,config,media,pictures}`).
     -   Configures systemd-managed SMB mounts with automatic failover protection (Docker stops if mounts fail).
@@ -603,6 +606,7 @@ These playbooks are designed for setting up specific types of Proxmox VMs.
 
 -   **`setup_docker_portainer_server.yaml`**:
     -   Extends `setup_docker_server.yaml` functionality.
+    -   Configures DNS using systemd-resolved to ensure proper name resolution.
     -   Installs Docker and Docker Compose.
     -   Creates a `dockeruser` and sets up directories.
     -   Configures systemd-managed SMB mounts with automatic failover protection (Docker stops if mounts fail).
@@ -611,6 +615,7 @@ These playbooks are designed for setting up specific types of Proxmox VMs.
     -   Fetches SSH password from Bitwarden for authentication (requires `docker_pve_ssh_password_uuid` or `docker_pve2_ssh_password_uuid` in vault).
 
 -   **`setup_media_server.yaml`**:
+    -   Configures DNS using systemd-resolved to ensure proper name resolution.
     -   Sets up a media server with Plex Media Server.
     -   Configures systemd-managed SMB mounts with automatic failover protection (Plex stops if mounts fail).
     -   Intended to be run on a VM with GPU passthrough for hardware transcoding (e.g., Intel Quick Sync).

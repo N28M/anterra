@@ -1,6 +1,6 @@
 services:
   watchtower:
-    image: containrrr/watchtower
+    image: nickfedor/watchtower
     container_name: watchtower
     environment:
       - PUID=${docker_user_puid}

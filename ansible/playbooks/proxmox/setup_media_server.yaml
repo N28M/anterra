@@ -68,6 +68,20 @@
         update_cache: true
         cache_valid_time: 3600
 
+    # Configure DNS using systemd-resolved
+    - name: Enable and start systemd-resolved
+      systemd:
+        name: systemd-resolved
+        enabled: true
+        state: started
+
+    - name: Create symlink for /etc/resolv.conf to systemd-resolved stub
+      file:
+        src: /run/systemd/resolve/stub-resolv.conf
+        dest: /etc/resolv.conf
+        state: link
+        force: true
+
     - name: Install Intel GPU drivers and required packages
       apt:
         name:

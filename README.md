@@ -631,6 +631,43 @@ These playbooks are designed for setting up specific types of Proxmox VMs.
 
 **SMB Mount Protection**: All VM setup playbooks now include systemd-managed SMB/CIFS mounts with service dependencies. This prevents Docker/Plex from starting when network shares are unavailable, protecting against data corruption from containers writing to local filesystems. If SMB shares become unavailable during runtime, systemd automatically stops dependent services. This protection is built into the setup playbooks and requires no additional configuration.
 
+## Troubleshooting
+
+### Recovering from Portainer Database Reset
+
+If you need to reset Portainer's database (using `playbooks/issue-fixes/fix_portainer_database_schema.yaml`) or the database becomes corrupted, follow this recovery procedure:
+
+**Problem**: After resetting Portainer's database, all container stacks managed via OpenTofu/Portainer API show as "Limited" control with the message "This stack was created outside of Portainer."
+
+**Root Cause**: When Portainer's database is reset, it loses all metadata about stacks that were created via the API. The Docker containers continue running, but Portainer no longer recognizes them as stacks it manages.
+
+**Solution**:
+
+1. **Update Portainer Endpoint IDs** (if they changed):
+   - In Portainer UI, go to **Environments**
+   - Note the endpoint IDs for each environment
+   - If the IDs changed from the defaults (docker_pve2: 3, docker_pve: 6), update them in `opentofu/portainer/terraform.tfvars` or `variables.tofu`
+
+2. **Reapply OpenTofu Portainer Configuration**:
+   ```bash
+   cd opentofu/portainer
+   tofu apply
+   ```
+
+3. **What Happens**:
+   - OpenTofu will show that it wants to "create" all stacks
+   - The Portainer provider is smart enough to adopt the existing Docker containers
+   - After apply completes, Portainer will recognize the stacks as fully managed
+   - The "Limited" control message will disappear
+
+**Important Notes**:
+- You do NOT need to manually remove the existing Docker containers
+- Running `tofu apply` is sufficient - the provider handles the reconciliation
+- All container data and configurations remain intact
+- You will need to re-add any environments (Portainer Agents) in the Portainer UI after a database reset
+
+**Prevention**: Ensure Portainer data volume (`portainer_data`) is backed up regularly to avoid data loss.
+
 ## Configuration Details
 
 ### `ansible.cfg`

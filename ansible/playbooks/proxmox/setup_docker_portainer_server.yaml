@@ -299,18 +299,19 @@
         state: directory
         mode: '0755'
 
-    - name: Configure Docker service to require SMB mounts
+    - name: Configure Docker service to require SMB automounts
       copy:
         dest: /etc/systemd/system/docker.service.d/smb-mounts.conf
         mode: '0644'
         content: |
           [Unit]
-          # Docker service requires all SMB mounts to be available
-          Requires=mnt-docker-media.mount mnt-docker-downloads.mount mnt-docker-documents.mount
-          After=mnt-docker-media.mount mnt-docker-downloads.mount mnt-docker-documents.mount
+          # Docker service requires automount units, which manage the mounts
+          # This allows automount to control when mounts are activated
+          Requires=mnt-docker-media.automount mnt-docker-downloads.automount mnt-docker-documents.automount
+          After=mnt-docker-media.automount mnt-docker-downloads.automount mnt-docker-documents.automount
 
-          # If mounts fail, Docker will not start
-          # This prevents containers from writing to local filesystem
+          # If automounts fail, Docker will not start
+          # This prevents containers from writing to local filesystem when SMB is unavailable
       register: docker_override
 
     - name: Reload systemd daemon
@@ -324,6 +325,18 @@
         mount_unit_documents.changed | default(false) or
         automount_unit_documents.changed | default(false) or
         docker_override.changed | default(false)
+
+    # Stop any active mount units before starting automount units
+    # This prevents "Path is already a mount point" errors when automount tries to start
+    - name: Stop mount units if already active
+      systemd:
+        name: "{{ item }}"
+        state: stopped
+      loop:
+        - mnt-docker-media.mount
+        - mnt-docker-downloads.mount
+        - mnt-docker-documents.mount
+      ignore_errors: true
 
     - name: Enable and start automount units
       systemd:

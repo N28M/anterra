@@ -242,18 +242,19 @@
         state: directory
         mode: '0755'
 
-    - name: Configure Plex service to require SMB mounts
+    - name: Configure Plex service to require SMB automounts
       copy:
         dest: /etc/systemd/system/plexmediaserver.service.d/smb-mounts.conf
         mode: '0644'
         content: |
           [Unit]
-          # Plex service requires all SMB mounts to be available
-          Requires=mnt-media.mount mnt-downloads.mount
-          After=mnt-media.mount mnt-downloads.mount
+          # Plex service requires automount units, which manage the mounts
+          # This allows automount to control when mounts are activated
+          Requires=mnt-media.automount mnt-downloads.automount
+          After=mnt-media.automount mnt-downloads.automount
 
-          # If mounts fail, Plex will not start
-          # This prevents Plex from accessing wrong directories
+          # If automounts fail, Plex will not start
+          # This prevents Plex from accessing wrong directories when SMB is unavailable
       register: plex_override
 
     - name: Reload systemd daemon
@@ -265,6 +266,17 @@
         mount_unit_downloads.changed | default(false) or
         automount_unit_downloads.changed | default(false) or
         plex_override.changed | default(false)
+
+    # Stop any active mount units before starting automount units
+    # This prevents "Path is already a mount point" errors when automount tries to start
+    - name: Stop mount units if already active
+      systemd:
+        name: "{{ item }}"
+        state: stopped
+      loop:
+        - mnt-media.mount
+        - mnt-downloads.mount
+      ignore_errors: true
 
     - name: Enable and start automount units
       systemd:

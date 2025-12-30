@@ -1,6 +1,6 @@
 # Portainer configuration
 docker_pve2_portainer_endpoint_id = 3
-docker_pve_portainer_endpoint_id  = 6
+docker_pve_portainer_endpoint_id  = 4
 
 # Bitwarden secret IDs for Portainer API key
 portainer_api_key_secret_id = "2012023b-8e2f-4f50-81d6-b39a004d5051"

@@ -60,12 +60,7 @@
     - name: Gather facts
       setup:
 
-    - name: Update apt cache
-      apt:
-        update_cache: true
-        cache_valid_time: 3600
-
-    # Configure DNS using systemd-resolved
+    # Configure DNS using systemd-resolved (must happen before apt operations)
     - name: Enable and start systemd-resolved
       systemd:
         name: systemd-resolved
@@ -78,6 +73,11 @@
         dest: /etc/resolv.conf
         state: link
         force: true
+
+    - name: Update apt cache
+      apt:
+        update_cache: true
+        cache_valid_time: 3600
 
     # Install Docker dependencies
     - name: Install dependencies for Docker

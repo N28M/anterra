@@ -63,12 +63,7 @@
     - name: Gather facts
       setup:
 
-    - name: Update apt cache
-      apt:
-        update_cache: true
-        cache_valid_time: 3600
-
-    # Configure DNS using systemd-resolved
+    # Configure DNS using systemd-resolved (must happen before apt operations)
     - name: Enable and start systemd-resolved
       systemd:
         name: systemd-resolved
@@ -81,6 +76,11 @@
         dest: /etc/resolv.conf
         state: link
         force: true
+
+    - name: Update apt cache
+      apt:
+        update_cache: true
+        cache_valid_time: 3600
 
     # Install Docker
     - name: Install dependencies for Docker
@@ -433,6 +433,21 @@
         group: "{{ docker_user }}"
         mode: '0755'
         state: directory
+      when: >
+        backup_drive_uuid is defined and
+        backup_drive_detected | default(false)
+
+    - name: Create backup subdirectories for Zerobyte
+      file:
+        path: "{{ item }}"
+        owner: "{{ docker_user }}"
+        group: "{{ docker_user }}"
+        mode: '0755'
+        state: directory
+      loop:
+        - /mnt/backup/zerobyte
+        - /mnt/backup/zerobyte/documents
+        - /mnt/backup/zerobyte/pictures
       when: >
         backup_drive_uuid is defined and
         backup_drive_detected | default(false)

@@ -4,4 +4,4 @@ ansible_host: "{{ docker_pve2_ip }}"
 ansible_user: dockeruser
 
 # USB backup drive configuration for Zerobyte
-backup_drive_uuid: "dd5c8bf2-a1a1-406d-a8c9-62acb67f1704"
+backup_drive_uuid: "1835a880-5494-4a9b-8606-0b6c18e5b803"

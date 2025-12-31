@@ -28,7 +28,7 @@ services:
       - karakeep
 
   chrome:
-    image: gcr.io/zenika-hub/alpine-chrome:124
+    image: gcr.io/zenika-hub/alpine-chrome:latest
     container_name: karakeep-chrome
     restart: unless-stopped
     command:
@@ -42,7 +42,7 @@ services:
       - karakeep
 
   meilisearch:
-    image: getmeili/meilisearch:v1.13.3
+    image: getmeili/meilisearch:latest
     container_name: karakeep-meilisearch
     restart: unless-stopped
     environment:

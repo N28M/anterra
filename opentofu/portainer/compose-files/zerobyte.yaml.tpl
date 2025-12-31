@@ -1,6 +1,6 @@
 services:
   zerobyte:
-    image: ghcr.io/nicotsx/zerobyte:v0.19
+    image: ghcr.io/nicotsx/zerobyte:latest
     container_name: zerobyte
     restart: unless-stopped
     environment:

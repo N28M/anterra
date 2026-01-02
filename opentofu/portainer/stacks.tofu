@@ -127,20 +127,6 @@ resource "portainer_stack" "bentopdf" {
   })
 }
 
-# Papra stack - self-hosted document management system
-resource "portainer_stack" "papra" {
-  name            = "papra"
-  deployment_type = "standalone"
-  method          = "string"
-  endpoint_id     = var.docker_pve2_portainer_endpoint_id
-  stack_file_content = templatefile("${path.module}/compose-files/papra.yaml.tpl", {
-    docker_timezone       = var.docker_timezone
-    docker_documents_path = var.docker_documents_path
-    domain_name           = local.domain_name
-    papra_auth_secret     = data.bitwarden_secret.papra_auth_secret.value
-  })
-}
-
 # Zerobyte stack - backup and snapshot solution
 resource "portainer_stack" "zerobyte" {
   name            = "zerobyte"

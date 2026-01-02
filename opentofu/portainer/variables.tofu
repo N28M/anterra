@@ -220,10 +220,3 @@ variable "profilarr_pat_secret_id" {
   type        = string
   sensitive   = true
 }
-
-# Papra authentication secret (Bitwarden secret ID)
-variable "papra_auth_secret_id" {
-  description = "The Bitwarden secret ID for Papra authentication secret"
-  type        = string
-  sensitive   = true
-}

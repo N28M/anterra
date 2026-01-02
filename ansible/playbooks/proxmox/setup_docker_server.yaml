@@ -159,7 +159,6 @@
         - /mnt/docker/config
         - /mnt/docker/media
         - /mnt/docker/pictures
-        - /mnt/docker/documents
 
     # Create Samba credentials file
     - name: Create Samba credentials file
@@ -260,48 +259,6 @@
       when: samba_share_ip is defined
       register: automount_unit_pictures
 
-    - name: Create systemd mount unit for documents share
-      copy:
-        dest: /etc/systemd/system/mnt-docker-documents.mount
-        mode: '0644'
-        content: |
-          [Unit]
-          Description=SMB mount /mnt/docker/documents
-          Requires=network-online.target
-          After=network-online.target
-          Before=docker.service
-
-          [Mount]
-          What=//{{ samba_share_ip }}/documents
-          Where=/mnt/docker/documents
-          Type=cifs
-          Options=credentials=/etc/docker-smb-credentials,uid=dockeruser,gid=dockeruser,iocharset=utf8,noperm,_netdev,x-systemd.mount-timeout=90s
-          TimeoutSec=90
-
-          [Install]
-          WantedBy=multi-user.target
-      when: samba_share_ip is defined
-      register: mount_unit_documents
-
-    - name: Create systemd automount unit for documents share
-      copy:
-        dest: /etc/systemd/system/mnt-docker-documents.automount
-        mode: '0644'
-        content: |
-          [Unit]
-          Description=Automount for /mnt/docker/documents
-          Requires=network-online.target
-          After=network-online.target
-          Before=docker.service
-
-          [Automount]
-          Where=/mnt/docker/documents
-
-          [Install]
-          WantedBy=multi-user.target
-      when: samba_share_ip is defined
-      register: automount_unit_documents
-
     - name: Create systemd override directory for Docker service
       file:
         path: /etc/systemd/system/docker.service.d
@@ -316,8 +273,8 @@
           [Unit]
           # Docker service requires automount units, which manage the mounts
           # This allows automount to control when mounts are activated
-          Requires=mnt-docker-media.automount mnt-docker-pictures.automount mnt-docker-documents.automount
-          After=mnt-docker-media.automount mnt-docker-pictures.automount mnt-docker-documents.automount
+          Requires=mnt-docker-media.automount mnt-docker-pictures.automount
+          After=mnt-docker-media.automount mnt-docker-pictures.automount
 
           # If automounts fail, Docker will not start
           # This prevents containers from writing to local filesystem when SMB is unavailable
@@ -332,8 +289,6 @@
         automount_unit_media.changed | default(false) or
         mount_unit_pictures.changed | default(false) or
         automount_unit_pictures.changed | default(false) or
-        mount_unit_documents.changed | default(false) or
-        automount_unit_documents.changed | default(false) or
         docker_override.changed | default(false)
 
     # Stop any active mount units before starting automount units
@@ -345,7 +300,6 @@
       loop:
         - mnt-docker-media.mount
         - mnt-docker-pictures.mount
-        - mnt-docker-documents.mount
       when: samba_share_ip is defined
       ignore_errors: true
 
@@ -357,7 +311,6 @@
       loop:
         - mnt-docker-media.automount
         - mnt-docker-pictures.automount
-        - mnt-docker-documents.automount
       when: samba_share_ip is defined
 
     - name: Restart Docker service to pick up mount dependencies
@@ -394,7 +347,6 @@
           - /mnt/docker/config (for container configs)
           - /mnt/docker/media (Samba mount)
           - /mnt/docker/pictures (Samba mount)
-          - /mnt/docker/documents (Samba mount)
 
           Next steps:
           - Add this agent to Portainer via Environments > Add environment

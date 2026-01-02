@@ -90,8 +90,3 @@ data "bitwarden_secret" "git_user_email" {
 data "bitwarden_secret" "profilarr_pat" {
   id = var.profilarr_pat_secret_id
 }
-
-# Fetch Papra authentication secret from Bitwarden Secrets Manager
-data "bitwarden_secret" "papra_auth_secret" {
-  id = var.papra_auth_secret_id
-}

@@ -14,10 +14,12 @@ services:
       - "4096:4096"
     cap_add:
       - SYS_ADMIN
+      - SYS_PTRACE
     devices:
       - /dev/fuse:/dev/fuse
     security_opt:
       - apparmor:unconfined
+      - seccomp:unconfined
     networks:
       - zerobyte
 

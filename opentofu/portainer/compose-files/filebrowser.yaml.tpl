@@ -7,7 +7,7 @@ services:
     ports:
       - "9200:80"
     volumes:
-      - ${docker_documents_path}:/srv
+      - ${docker_documents_path}/Filebrowser:/srv
       - ${docker_config_path}/filebrowser:/database
     environment:
       - TZ=${docker_timezone}

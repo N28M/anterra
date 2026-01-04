@@ -52,3 +52,8 @@ domain_name_secret_id = "ad518b08-eb55-4eb3-a040-b3b10077183d"
 git_user_name_secret_id = "75c9e41b-7fba-47df-9a9e-b3be00624c2e"
 git_user_email_secret_id = "b5166a34-6849-4ab1-aa0d-b3be006292d5"
 profilarr_pat_secret_id = "bf724d98-7499-4a0e-ba3f-b3be0063bf14"
+
+# NoteDiscovery configuration
+# TODO: Replace with actual Bitwarden secret IDs after creating secrets
+notediscovery_secret_key_secret_id    = "24281e4c-a2f2-46d3-af67-b3c8009fffb7"
+notediscovery_password_hash_secret_id = "bd289b84-58a8-40f9-8436-b3c800a01612"

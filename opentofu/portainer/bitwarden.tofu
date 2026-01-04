@@ -90,3 +90,13 @@ data "bitwarden_secret" "git_user_email" {
 data "bitwarden_secret" "profilarr_pat" {
   id = var.profilarr_pat_secret_id
 }
+
+# Fetch NoteDiscovery secret key from Bitwarden Secrets Manager
+data "bitwarden_secret" "notediscovery_secret_key" {
+  id = var.notediscovery_secret_key_secret_id
+}
+
+# Fetch NoteDiscovery password hash from Bitwarden Secrets Manager
+data "bitwarden_secret" "notediscovery_password_hash" {
+  id = var.notediscovery_password_hash_secret_id
+}

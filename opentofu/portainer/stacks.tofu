@@ -154,3 +154,20 @@ resource "portainer_stack" "zerobyte" {
   })
 }
 
+# NoteDiscovery stack - self-hosted markdown knowledge base
+resource "portainer_stack" "notediscovery" {
+  name            = "notediscovery"
+  deployment_type = "standalone"
+  method          = "string"
+  endpoint_id     = var.docker_pve2_portainer_endpoint_id
+  stack_file_content = templatefile("${path.module}/compose-files/notediscovery.yaml.tpl", {
+    docker_user_puid            = data.bitwarden_secret.docker_user_puid.value
+    docker_user_pgid            = data.bitwarden_secret.docker_user_pgid.value
+    docker_timezone             = var.docker_timezone
+    docker_documents_path       = var.docker_documents_path
+    notediscovery_secret_key    = data.bitwarden_secret.notediscovery_secret_key.value
+    # Escape $ characters in bcrypt hash for Docker Compose ($ -> $$)
+    notediscovery_password_hash = replace(data.bitwarden_secret.notediscovery_password_hash.value, "$", "$$")
+  })
+}
+

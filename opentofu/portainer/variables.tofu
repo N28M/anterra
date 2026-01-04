@@ -220,3 +220,17 @@ variable "profilarr_pat_secret_id" {
   type        = string
   sensitive   = true
 }
+
+# NoteDiscovery secret key (Bitwarden secret ID)
+variable "notediscovery_secret_key_secret_id" {
+  description = "The Bitwarden secret ID for NoteDiscovery session secret key"
+  type        = string
+  sensitive   = true
+}
+
+# NoteDiscovery password hash (Bitwarden secret ID)
+variable "notediscovery_password_hash_secret_id" {
+  description = "The Bitwarden secret ID for NoteDiscovery bcrypt password hash"
+  type        = string
+  sensitive   = true
+}

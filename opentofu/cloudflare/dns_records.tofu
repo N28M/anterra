@@ -87,6 +87,10 @@ locals {
       content = local.vps_reverse_proxy_ip
       proxied = true
     }
+    "notes" = {
+      content = local.vps_reverse_proxy_ip
+      proxied = true
+    }
   }
 }
 

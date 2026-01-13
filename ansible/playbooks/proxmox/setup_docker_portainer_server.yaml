@@ -159,6 +159,7 @@
         - /mnt/docker/media
         - /mnt/docker/downloads
         - /mnt/docker/documents
+        - /mnt/docker/pictures
 
     # Create Samba credentials file
     - name: Create Samba credentials file
@@ -294,6 +295,46 @@
           WantedBy=multi-user.target
       register: automount_unit_documents
 
+    - name: Create systemd mount unit for pictures share
+      copy:
+        dest: /etc/systemd/system/mnt-docker-pictures.mount
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=SMB mount /mnt/docker/pictures
+          Requires=network-online.target
+          After=network-online.target
+          Before=docker.service
+
+          [Mount]
+          What=//{{ samba_share_ip }}/media/pictures
+          Where=/mnt/docker/pictures
+          Type=cifs
+          Options=credentials=/etc/docker-smb-credentials,uid=dockeruser,gid=dockeruser,iocharset=utf8,noperm,_netdev,x-systemd.mount-timeout=90s
+          TimeoutSec=90
+
+          [Install]
+          WantedBy=multi-user.target
+      register: mount_unit_pictures
+
+    - name: Create systemd automount unit for pictures share
+      copy:
+        dest: /etc/systemd/system/mnt-docker-pictures.automount
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Automount for /mnt/docker/pictures
+          Requires=network-online.target
+          After=network-online.target
+          Before=docker.service
+
+          [Automount]
+          Where=/mnt/docker/pictures
+
+          [Install]
+          WantedBy=multi-user.target
+      register: automount_unit_pictures
+
     - name: Create systemd override directory for Docker service
       file:
         path: /etc/systemd/system/docker.service.d
@@ -308,8 +349,8 @@
           [Unit]
           # Docker service requires automount units, which manage the mounts
           # This allows automount to control when mounts are activated
-          Requires=mnt-docker-media.automount mnt-docker-downloads.automount mnt-docker-documents.automount
-          After=mnt-docker-media.automount mnt-docker-downloads.automount mnt-docker-documents.automount
+          Requires=mnt-docker-media.automount mnt-docker-downloads.automount mnt-docker-documents.automount mnt-docker-pictures.automount
+          After=mnt-docker-media.automount mnt-docker-downloads.automount mnt-docker-documents.automount mnt-docker-pictures.automount
 
           # If automounts fail, Docker will not start
           # This prevents containers from writing to local filesystem when SMB is unavailable
@@ -325,6 +366,8 @@
         automount_unit_downloads.changed | default(false) or
         mount_unit_documents.changed | default(false) or
         automount_unit_documents.changed | default(false) or
+        mount_unit_pictures.changed | default(false) or
+        automount_unit_pictures.changed | default(false) or
         docker_override.changed | default(false)
 
     # Stop any active mount units before starting automount units
@@ -337,6 +380,7 @@
         - mnt-docker-media.mount
         - mnt-docker-downloads.mount
         - mnt-docker-documents.mount
+        - mnt-docker-pictures.mount
       ignore_errors: true
 
     - name: Enable and start automount units
@@ -347,6 +391,7 @@
       loop:
         - mnt-docker-media.automount
         - mnt-docker-downloads.automount
+        - mnt-docker-pictures.automount
         - mnt-docker-documents.automount
 
     - name: Restart Docker service to pick up mount dependencies
@@ -515,6 +560,7 @@
           - /mnt/docker/media (Samba mount)
           - /mnt/docker/downloads (Samba mount)
           - /mnt/docker/documents (Samba mount)
+          - /mnt/docker/pictures (Samba mount)
           - /mnt/backup (USB backup drive for Zerobyte)
 
           Access Portainer at:

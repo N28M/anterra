@@ -78,6 +78,12 @@ variable "docker_documents_path" {
   type        = string
 }
 
+# Docker pictures path (SMB mount for pictures)
+variable "docker_pictures_path" {
+  description = "Path for Docker container pictures data (SMB mount at /mnt/docker/pictures)"
+  type        = string
+}
+
 # Gluetun VPN input port (AirVPN forwarded port)
 variable "vpn_input_port_secret_id" {
   description = "The Bitwarden secret ID for the Gluetun VPN input port"

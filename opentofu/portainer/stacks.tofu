@@ -151,6 +151,7 @@ resource "portainer_stack" "zerobyte" {
   stack_file_content = templatefile("${path.module}/compose-files/zerobyte.yaml.tpl", {
     docker_timezone       = var.docker_timezone
     docker_documents_path = var.docker_documents_path
+    docker_pictures_path  = var.docker_pictures_path
   })
 }
 

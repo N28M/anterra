@@ -18,6 +18,7 @@ docker_data_path        = "/mnt/docker/appdata"
 docker_media_path       = "/mnt/docker/media"
 docker_downloads_path   = "/mnt/docker/downloads"
 docker_documents_path   = "/mnt/docker/documents"
+docker_pictures_path    = "/mnt/docker/pictures"
 
 # Bitwarden secret IDs for Gluetun configuration
 vpn_input_port_secret_id  = "95a1d37d-700b-4898-9578-b39a005cb0ce"

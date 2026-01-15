@@ -1,15 +1,37 @@
+# Tailscale sidecar provides VPN connectivity to n8n
+# All containers share the Tailscale network namespace via network_mode: service:tailscale
+# This allows n8n to access Tailscale devices (e.g., Ollama on laptop) while maintaining local database connectivity
 services:
+  tailscale:
+    container_name: n8n-tailscale
+    image: tailscale/tailscale:latest
+    restart: always
+    hostname: n8n
+    environment:
+      - TS_AUTHKEY=${tailscale_auth_key}
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_HOSTNAME=n8n
+      - TS_USERSPACE=false
+      - TS_AUTO_UPDATE=true
+    volumes:
+      - ${n8n_data_path}/tailscale:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    ports:
+      - "5678:5678"
+
   n8n:
     container_name: n8n
     image: docker.io/n8nio/n8n:${n8n_version}
     restart: always
-    ports:
-      - "5678:5678"
+    network_mode: service:tailscale
     environment:
       - PUID=${docker_user_puid}
       - PGID=${docker_user_pgid}
       - DB_TYPE=postgresdb
-      - DB_POSTGRESDB_HOST=n8n-postgres
+      - DB_POSTGRESDB_HOST=localhost
       - DB_POSTGRESDB_PORT=5432
       - DB_POSTGRESDB_DATABASE=n8n
       - DB_POSTGRESDB_USER=n8n
@@ -21,10 +43,13 @@ services:
       - GENERIC_TIMEZONE=${docker_timezone}
       - TZ=${docker_timezone}
       - NODE_ENV=production
+      - N8N_PROXY_HOPS=1
     volumes:
       - ${n8n_data_path}:/home/node/.n8n
       - /etc/localtime:/etc/localtime:ro
     depends_on:
+      tailscale:
+        condition: service_started
       n8n-postgres:
         condition: service_healthy
     healthcheck:
@@ -38,6 +63,7 @@ services:
     container_name: n8n_postgres
     image: postgres:16-alpine
     restart: always
+    network_mode: service:tailscale
     environment:
       - PUID=${docker_user_puid}
       - PGID=${docker_user_pgid}
@@ -48,6 +74,9 @@ services:
       - POSTGRES_NON_ROOT_PASSWORD=${n8n_db_password}
     volumes:
       - ${n8n_db_data_location}:/var/lib/postgresql/data
+    depends_on:
+      tailscale:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U n8n -d n8n"]
       interval: 10s

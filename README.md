@@ -264,7 +264,7 @@ Most services are deployed via OpenTofu Portainer stacks. See [docs/services/](d
 
 ### Automation
 
-- [n8n](docs/services/n8n.md) - Workflow automation platform
+- [n8n](docs/services/n8n.md) - Workflow automation platform with Tailscale sidecar for LLM integration
 - [Watchtower](docs/services/watchtower.md) - Container auto-updater
 
 ### Utilities
@@ -494,7 +494,7 @@ anterra/
             ├── gluetun.yaml.tpl              # VPN container with tunneled services
             ├── immich.yaml.tpl               # Photo management
             ├── karakeep.yaml.tpl             # Bookmark manager with AI tagging
-            ├── n8n.yaml.tpl                  # Workflow automation
+            ├── n8n.yaml.tpl                  # Workflow automation with Tailscale sidecar
             ├── notediscovery.yaml.tpl        # Markdown knowledge base
             ├── tailscale-airvpn.yaml.tpl     # Tailscale exit node via VPN
             ├── watchtower.yaml.tpl           # Container auto-updater

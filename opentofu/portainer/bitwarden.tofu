@@ -71,6 +71,11 @@ data "bitwarden_secret" "n8n_encryption_key" {
   id = var.n8n_encryption_key_secret_id
 }
 
+# Fetch n8n Tailscale auth key from Bitwarden Secrets Manager
+data "bitwarden_secret" "n8n_tailscale_auth_key" {
+  id = var.n8n_tailscale_auth_key_secret_id
+}
+
 # Fetch domain name from Bitwarden Secrets Manager
 data "bitwarden_secret" "domain_name" {
   id = var.domain_name_secret_id

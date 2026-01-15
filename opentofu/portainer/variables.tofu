@@ -199,6 +199,13 @@ variable "n8n_encryption_key_secret_id" {
   sensitive   = true
 }
 
+# n8n Tailscale auth key (Bitwarden secret ID)
+variable "n8n_tailscale_auth_key_secret_id" {
+  description = "The Bitwarden secret ID for n8n Tailscale auth key (sidecar container)"
+  type        = string
+  sensitive   = true
+}
+
 # Domain name (Bitwarden secret ID)
 variable "domain_name_secret_id" {
   description = "The Bitwarden secret ID for the base domain name"

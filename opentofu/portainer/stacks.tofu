@@ -95,7 +95,7 @@ resource "portainer_stack" "immich" {
   })
 }
 
-# n8n stack - workflow automation platform with PostgreSQL
+# n8n stack - workflow automation platform with PostgreSQL and Tailscale sidecar
 resource "portainer_stack" "n8n" {
   name            = "n8n"
   deployment_type = "standalone"
@@ -111,6 +111,7 @@ resource "portainer_stack" "n8n" {
     n8n_db_password        = data.bitwarden_secret.n8n_db_password.value
     n8n_encryption_key     = data.bitwarden_secret.n8n_encryption_key.value
     domain_name            = local.domain_name
+    tailscale_auth_key     = data.bitwarden_secret.n8n_tailscale_auth_key.value
   })
 }
 

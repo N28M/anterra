@@ -45,6 +45,8 @@ n8n_data_path                    = "/mnt/docker/appdata/n8n"
 n8n_db_data_location             = "/mnt/docker/appdata/n8n/postgres"
 n8n_db_password_secret_id        = "2ecd207d-97f8-4756-8312-b3a4006eb641"
 n8n_encryption_key_secret_id     = "c04cdd36-24f3-442b-994e-b3a4006ed76b"
+# TODO: Replace with actual Bitwarden secret ID after creating Tailscale auth key
+n8n_tailscale_auth_key_secret_id = "201cdbb6-177f-4188-9a26-b39f002fc4a3"
 
 # Domain name
 domain_name_secret_id = "ad518b08-eb55-4eb3-a040-b3b10077183d"

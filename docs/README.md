@@ -24,7 +24,7 @@ This directory contains detailed documentation for all deployed services in the 
 
 | Service | Description | Deployment |
 |---------|-------------|------------|
-| [n8n](services/n8n.md) | Workflow automation platform | docker_pve |
+| [n8n](services/n8n.md) | Workflow automation platform with Tailscale sidecar | docker_pve |
 | [Watchtower](services/watchtower.md) | Container auto-updater | Both endpoints |
 
 ### Utilities

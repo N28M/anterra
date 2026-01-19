@@ -11,9 +11,16 @@ services:
       - ${docker_config_path}/gluetun/config:/gluetun
     environment:
       - VPN_SERVICE_PROVIDER=airvpn
-      - SERVER_COUNTRIES=Netherlands
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=${wireguard_private_key}
+      - WIREGUARD_PRESHARED_KEY=${wireguard_preshared_key}
+      - WIREGUARD_ADDRESSES=${wireguard_addresses}
+      - SERVER_COUNTRIES=Japan,Singapore
       - FIREWALL_VPN_INPUT_PORTS=${vpn_input_port}
       - FIREWALL_OUTBOUND_SUBNETS=${outbound_subnet}
+      - DOT_BLOCK_MALICIOUS=on
+      - DOT_BLOCK_ADS=on
+      - DOT_BLOCK_SURVEILLANCE=on
     ports:
       - "53594:53594/tcp"   # AirVPN forwarded port
       - "53594:53594/udp"   # AirVPN forwarded port

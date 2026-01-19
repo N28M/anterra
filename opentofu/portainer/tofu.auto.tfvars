@@ -24,6 +24,16 @@ docker_pictures_path    = "/mnt/docker/pictures"
 vpn_input_port_secret_id  = "95a1d37d-700b-4898-9578-b39a005cb0ce"
 outbound_subnet_secret_id = "f58eec00-2682-4a82-81f5-b39a005ce2cd"
 
+# Gluetun WireGuard configuration (AirVPN)
+wireguard_private_key_secret_id   = "02f3fa48-ea5a-4aa8-8c1f-b3d7000f086e"
+wireguard_preshared_key_secret_id = "216d6a97-10be-49f2-97ea-b3d7000f27fb"
+wireguard_addresses_secret_id     = "15f6f039-e9fc-48d7-9b3c-b3d7000f4453"
+
+# Tailscale-AirVPN WireGuard configuration (separate AirVPN config)
+ts_wireguard_private_key_secret_id   = "789cf967-4187-4858-86f2-b3d700105a23"
+ts_wireguard_preshared_key_secret_id = "38a591b6-677d-4ebd-b698-b3d700109cd9"
+ts_wireguard_addresses_secret_id     = "4391e20d-8ef6-41ed-8148-b3d70010d095"
+
 # Bitwarden secret IDs for karakeep
 karakeep_nextauth_url_secret_id    = "a648d8c6-60d7-4690-a116-b39a00dc5d27"
 karakeep_nextauth_secret_id        = "33da07f9-acf3-435c-b126-b39a00da782d"

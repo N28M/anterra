@@ -98,6 +98,48 @@ variable "outbound_subnet_secret_id" {
   sensitive   = true
 }
 
+# Gluetun WireGuard private key (Bitwarden secret ID)
+variable "wireguard_private_key_secret_id" {
+  description = "The Bitwarden secret ID for the Gluetun WireGuard private key"
+  type        = string
+  sensitive   = true
+}
+
+# Gluetun WireGuard preshared key (Bitwarden secret ID)
+variable "wireguard_preshared_key_secret_id" {
+  description = "The Bitwarden secret ID for the Gluetun WireGuard preshared key"
+  type        = string
+  sensitive   = true
+}
+
+# Gluetun WireGuard address (Bitwarden secret ID)
+variable "wireguard_addresses_secret_id" {
+  description = "The Bitwarden secret ID for the Gluetun WireGuard VPN address"
+  type        = string
+  sensitive   = true
+}
+
+# Tailscale-AirVPN WireGuard private key (Bitwarden secret ID)
+variable "ts_wireguard_private_key_secret_id" {
+  description = "The Bitwarden secret ID for the Tailscale-AirVPN WireGuard private key"
+  type        = string
+  sensitive   = true
+}
+
+# Tailscale-AirVPN WireGuard preshared key (Bitwarden secret ID)
+variable "ts_wireguard_preshared_key_secret_id" {
+  description = "The Bitwarden secret ID for the Tailscale-AirVPN WireGuard preshared key"
+  type        = string
+  sensitive   = true
+}
+
+# Tailscale-AirVPN WireGuard address (Bitwarden secret ID)
+variable "ts_wireguard_addresses_secret_id" {
+  description = "The Bitwarden secret ID for the Tailscale-AirVPN WireGuard VPN address"
+  type        = string
+  sensitive   = true
+}
+
 # Karakeep version tag
 variable "karakeep_version" {
   description = "Docker image tag for Karakeep (e.g., 'release' or specific version)"

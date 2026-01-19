@@ -34,51 +34,55 @@ Container names use `-ts` suffix to distinguish from the regular gluetun stack:
 | Secret Variable | Description |
 |-----------------|-------------|
 | `tailscale_auth_key_uuid` | Tailscale authentication key |
+| `ts_wireguard_private_key` | WireGuard private key from AirVPN config generator |
+| `ts_wireguard_preshared_key` | WireGuard preshared key from AirVPN config generator |
+| `ts_wireguard_addresses` | WireGuard VPN address (e.g., 10.128.x.x/32) |
 
-## AirVPN Certificate Setup
+## AirVPN WireGuard Setup
 
-This stack uses separate AirVPN certificates from the regular gluetun stack:
+This stack uses separate AirVPN WireGuard credentials from the regular gluetun stack:
 
-1. Generate certificates from https://client.airvpn.org/
-2. Download in OpenVPN 2.6 format, extract `client.crt` and `client.key`
-3. Store both files in Bitwarden Secrets Manager
-4. Add UUIDs to `ansible/inventory/group_vars/all/secrets.yaml`:
-   ```yaml
-   tailscale_airvpn_crt_uuid: "your-uuid-here"
-   tailscale_airvpn_key_uuid: "your-uuid-here"
-   ```
-5. Deploy certificates:
-   ```bash
-   ansible-playbook -i ansible/inventory/hosts.yaml ansible/playbooks/gluetun/configure_airvpn_certificates.yaml
+1. Go to https://airvpn.org/generator/
+2. Select **WireGuard** protocol
+3. Choose your preferred server location (Netherlands)
+4. Generate and download the configuration
+5. Extract these values from the generated config file:
+   - `PrivateKey` - Your WireGuard private key
+   - `PresharedKey` - The preshared key for additional security
+   - `Address` - Your assigned VPN address (e.g., 10.128.x.x/32)
+6. Store each value as a separate secret in Bitwarden Secrets Manager
+7. Add the Bitwarden secret UUIDs to `opentofu/portainer/tofu.auto.tfvars`:
+   ```hcl
+   ts_wireguard_private_key_secret_id   = "your-uuid-here"
+   ts_wireguard_preshared_key_secret_id = "your-uuid-here"
+   ts_wireguard_addresses_secret_id     = "your-uuid-here"
    ```
 
 ## Initial Setup
 
-1. Generate separate AirVPN certificates for this stack
-2. Add certificate UUIDs to Ansible vault secrets
+1. Generate WireGuard configuration from AirVPN (see WireGuard Setup above)
+2. Store WireGuard credentials in Bitwarden Secrets Manager
 3. Create a reusable Tailscale auth key:
    - Go to Tailscale admin console > Settings > Keys
    - Create a reusable auth key
    - Store in Bitwarden and note the UUID
-4. Update `opentofu/portainer/tofu.auto.tfvars`:
+4. Update `opentofu/portainer/tofu.auto.tfvars` with all secret UUIDs:
    ```hcl
-   tailscale_auth_key_uuid = "your-bitwarden-uuid"
+   tailscale_auth_key_uuid              = "your-bitwarden-uuid"
+   ts_wireguard_private_key_secret_id   = "your-uuid-here"
+   ts_wireguard_preshared_key_secret_id = "your-uuid-here"
+   ts_wireguard_addresses_secret_id     = "your-uuid-here"
    ```
-5. Deploy AirVPN certificates:
-   ```bash
-   ansible-playbook -i ansible/inventory/hosts.yaml ansible/playbooks/gluetun/configure_airvpn_certificates.yaml
-   ```
-6. Deploy the stack:
+5. Deploy the stack:
    ```bash
    cd opentofu/portainer
    tofu apply
    ```
-7. In Portainer, restart the `gluetun-ts` container
-8. Verify VPN connection in container logs ("VPN connected")
-9. In Tailscale admin console:
+6. Verify VPN connection in gluetun-ts container logs (look for WireGuard handshake success)
+7. In Tailscale admin console:
    - Verify the exit node is visible and online
    - Enable it as an exit node (requires manual approval)
-10. On Tailscale clients, select this exit node in Settings
+8. On Tailscale clients, select this exit node in Settings
 
 ## Volume Mounts
 
@@ -97,24 +101,24 @@ This stack uses separate AirVPN certificates from the regular gluetun stack:
 
 ## Important Notes
 
-- Uses **separate AirVPN certificates** from the regular gluetun stack
+- Uses **separate AirVPN WireGuard credentials** from the regular gluetun stack
 - Each stack can use a different AirVPN account if needed
 - Exit node must be manually enabled in Tailscale admin console
 - Tailscale auth keys expire separately from node keys
 - If auth key expires, generate a new one and redeploy
-- Container restart may be needed after certificate updates
+- WireGuard provides better performance and stability than OpenVPN
 
 ## Troubleshooting
 
 **Exit node not appearing in Tailscale**:
-1. Check gluetun-ts logs for "VPN connected"
+1. Check gluetun-ts logs for WireGuard handshake success
 2. Check tailscale-ts logs for authentication errors
 3. Verify auth key is valid and not expired
 
 **VPN not connecting**:
-1. Verify AirVPN certificates are deployed correctly
-2. Check certificate paths in gluetun config directory
-3. Review gluetun-ts container logs
+1. Verify WireGuard credentials are correct in Bitwarden
+2. Check that all three WireGuard secrets are set (private key, preshared key, address)
+3. Review gluetun-ts container logs for connection errors
 
 ## References
 

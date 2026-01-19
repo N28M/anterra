@@ -29,25 +29,33 @@ Gluetun is a VPN container that provides a secure tunnel for multiple services. 
 
 | Secret Variable | Description |
 |-----------------|-------------|
+| `wireguard_private_key` | WireGuard private key from AirVPN config generator |
+| `wireguard_preshared_key` | WireGuard preshared key from AirVPN config generator |
+| `wireguard_addresses` | WireGuard VPN address (e.g., 10.128.x.x/32) |
 | `vpn_input_port` | AirVPN forwarded port (e.g., 53594) |
 | `outbound_subnet` | Allowed outbound subnet for VPN firewall |
 | `git_user_name` | Git username for Profilarr |
 | `git_user_email` | Git email for Profilarr |
 | `profilarr_pat` | Personal Access Token for Profilarr GitHub sync |
 
-## AirVPN Certificate Setup
+## AirVPN WireGuard Setup
 
-AirVPN uses certificate-based authentication. Certificates are deployed via Ansible:
+AirVPN uses WireGuard for better performance and stability compared to OpenVPN.
 
-1. Generate certificates from https://client.airvpn.org/
-2. Download in OpenVPN 2.6 format, extract `client.crt` and `client.key`
-3. Store both files in Bitwarden Secrets Manager
-4. Add UUIDs to `ansible/inventory/group_vars/all/secrets.yaml`:
-   - `gluetun_airvpn_crt_uuid`
-   - `gluetun_airvpn_key_uuid`
-5. Deploy certificates:
-   ```bash
-   ansible-playbook -i ansible/inventory/hosts.yaml ansible/playbooks/gluetun/configure_airvpn_certificates.yaml
+1. Go to https://airvpn.org/generator/
+2. Select **WireGuard** protocol
+3. Choose your preferred server location (Netherlands)
+4. Generate and download the configuration
+5. Extract these values from the generated config file:
+   - `PrivateKey` - Your WireGuard private key
+   - `PresharedKey` - The preshared key for additional security
+   - `Address` - Your assigned VPN address (e.g., 10.128.x.x/32)
+6. Store each value as a separate secret in Bitwarden Secrets Manager
+7. Add the Bitwarden secret UUIDs to `opentofu/portainer/tofu.auto.tfvars`:
+   ```hcl
+   wireguard_private_key_secret_id   = "your-uuid-here"
+   wireguard_preshared_key_secret_id = "your-uuid-here"
+   wireguard_addresses_secret_id     = "your-uuid-here"
    ```
 
 ## Initial Setup
@@ -97,8 +105,9 @@ AirVPN uses certificate-based authentication. Certificates are deployed via Ansi
 
 - All services share Gluetun's network stack
 - If Gluetun stops, all tunneled services lose connectivity
-- VPN connection verified via container logs: "VPN connected"
+- VPN connection verified via container logs: look for WireGuard handshake success
 - Port forwarding through AirVPN improves torrent connectivity
+- WireGuard provides better performance and stability than OpenVPN, with lower CPU usage and faster reconnections
 
 ## References
 

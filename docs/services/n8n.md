@@ -19,6 +19,7 @@ n8n is a workflow automation platform that allows you to connect various service
 | n8n-tailscale | tailscale/tailscale:latest | Tailscale VPN sidecar |
 | n8n | docker.io/n8nio/n8n | Main workflow engine |
 | n8n-postgres | postgres:16-alpine | PostgreSQL database |
+| n8n-browserless | ghcr.io/browserless/chromium:latest | Browser automation service (Playwright/Puppeteer) |
 
 All containers share the Tailscale network namespace via `network_mode: service:tailscale`, allowing n8n to access Tailscale devices (e.g., Ollama on a laptop) while maintaining local database connectivity.
 
@@ -160,9 +161,106 @@ docker exec -it n8n-tailscale curl http://100.x.x.x:11434/api/tags
 # Replace 100.x.x.x with your laptop's actual Tailscale IP
 ```
 
+## Browser Automation with Browserless
+
+The stack includes Browserless for browser automation tasks like web scraping, screenshots, and PDF generation.
+
+### Browserless Configuration
+
+**Connection Details**:
+- Base URL: `http://localhost:3000` (from within n8n workflows)
+- API documentation: https://docs.browserless.io/
+
+**Environment Variables**:
+| Variable | Value | Description |
+|----------|-------|-------------|
+| `TIMEOUT` | 30000 | Browser operation timeout (30 seconds) |
+| `CONCURRENT` | 3 | Maximum concurrent browser sessions |
+| `MAX_QUEUE_LENGTH` | 10 | Maximum queued requests when at capacity |
+| `PREBOOT_CHROME` | true | Pre-load Chrome for faster response times |
+| `KEEP_ALIVE` | true | Reuse browser instances between requests |
+| `ENABLE_CORS` | true | Allow CORS for n8n HTTP requests |
+
+### Using Browserless in n8n Workflows
+
+**HTTP Request Node Configuration**:
+
+1. **Take Screenshot**:
+   - Method: POST
+   - URL: `http://localhost:3000/screenshot`
+   - Body Type: JSON
+   - Body:
+     ```json
+     {
+       "url": "https://example.com",
+       "options": {
+         "fullPage": true,
+         "type": "png"
+       }
+     }
+     ```
+
+2. **Generate PDF**:
+   - Method: POST
+   - URL: `http://localhost:3000/pdf`
+   - Body Type: JSON
+   - Body:
+     ```json
+     {
+       "url": "https://example.com",
+       "options": {
+         "format": "A4",
+         "printBackground": true
+       }
+     }
+     ```
+
+3. **Execute Custom Playwright Script**:
+   - Method: POST
+   - URL: `http://localhost:3000/chrome/execute`
+   - Headers: `Content-Type: application/javascript`
+   - Body: Raw JavaScript
+     ```javascript
+     export default async ({ page, context }) => {
+       await page.goto('https://example.com');
+       const title = await page.title();
+       return { title };
+     };
+     ```
+
+### Browserless Health Check
+
+Browserless includes a health check endpoint:
+- Endpoint: `/pressure`
+- Returns system load and available sessions
+
+### Resource Considerations
+
+Browser automation is memory-intensive:
+- Each Chrome instance uses ~100-300MB RAM
+- With `CONCURRENT=3`, expect ~300-900MB usage
+- Adjust `CONCURRENT` based on available system resources
+
+### Browserless Troubleshooting
+
+**Connection Timeout**:
+- Verify browserless container is running: `docker ps | grep n8n-browserless`
+- Check health: `docker exec n8n-browserless wget -qO- http://localhost:3000/pressure`
+- Review logs: `docker logs n8n-browserless`
+
+**Out of Memory**:
+- Reduce `CONCURRENT` value
+- Increase Docker host memory
+- Check container memory usage: `docker stats n8n-browserless`
+
+**Slow Performance**:
+- Ensure `PREBOOT_CHROME=true` is set
+- Check system resources on docker_pve
+- Consider reducing `TIMEOUT` for faster failures
+
 ## Health Checks
 
-Both containers include health checks:
+All containers include health checks:
 
 **n8n**:
 - Endpoint: `/healthz`
@@ -172,6 +270,11 @@ Both containers include health checks:
 **PostgreSQL**:
 - Command: `pg_isready`
 - Interval: 10s
+
+**Browserless**:
+- Endpoint: `/pressure`
+- Interval: 30s
+- Start period: 30s
 
 ## Container Dependencies
 
@@ -215,9 +318,14 @@ All containers share the Tailscale network namespace, which is why database conn
 - Data transformation pipelines
 - Notification workflows
 - **Ollama/LLM integration** for AI-powered workflows via Tailscale network
+- **Web scraping and automation** using Browserless for dynamic content
+- **Screenshot and PDF generation** for reports and archival
+- **Browser-based testing** for web applications
 
 ## References
 
 - [n8n Documentation](https://docs.n8n.io/)
 - [n8n Integrations](https://n8n.io/integrations/)
 - [n8n Community](https://community.n8n.io/)
+- [Browserless Documentation](https://docs.browserless.io/)
+- [Browserless GitHub](https://github.com/browserless/browserless)

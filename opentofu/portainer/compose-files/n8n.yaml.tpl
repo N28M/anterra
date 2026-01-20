@@ -21,6 +21,7 @@ services:
       - SYS_MODULE
     ports:
       - "5678:5678"
+      - "3000:3000"
 
   n8n:
     container_name: n8n
@@ -82,3 +83,27 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  browserless:
+    container_name: n8n-browserless
+    image: ghcr.io/browserless/chromium:latest
+    restart: always
+    network_mode: service:tailscale
+    environment:
+      - PUID=${docker_user_puid}
+      - PGID=${docker_user_pgid}
+      - TIMEOUT=30000
+      - CONCURRENT=3
+      - MAX_QUEUE_LENGTH=10
+      - PREBOOT_CHROME=true
+      - KEEP_ALIVE=true
+      - ENABLE_CORS=true
+    depends_on:
+      tailscale:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:3000/pressure || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s

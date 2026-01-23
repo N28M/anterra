@@ -36,6 +36,8 @@ internal_reverse_proxy_records:
     tls_skip_verify: true
   - domain: zerobyte.{{ domain_name }}
     upstream: "http://{{ docker_pve2_ip }}:4096"
+  - domain: domain.{{ domain_name }}
+    upstream: "http://{{ docker_pve2_ip }}:3030"
 
 # -------------------------------------------------------------------------
 # External Records - Handled by VPS Caddy instance (vps)

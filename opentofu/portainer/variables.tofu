@@ -289,3 +289,10 @@ variable "notediscovery_password_hash_secret_id" {
   type        = string
   sensitive   = true
 }
+
+# Domain Locker database password (Bitwarden secret ID)
+variable "domain_locker_db_password_secret_id" {
+  description = "The Bitwarden secret ID for Domain Locker PostgreSQL database password"
+  type        = string
+  sensitive   = true
+}

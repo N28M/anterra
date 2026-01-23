@@ -180,3 +180,15 @@ resource "portainer_stack" "notediscovery" {
   })
 }
 
+# Domain Locker stack - domain management and expiration tracking
+resource "portainer_stack" "domain_locker" {
+  name            = "domain-locker"
+  deployment_type = "standalone"
+  method          = "string"
+  endpoint_id     = var.docker_pve2_portainer_endpoint_id
+  stack_file_content = templatefile("${path.module}/compose-files/domain-locker.yaml.tpl", {
+    docker_data_path = var.docker_data_path
+    db_password      = data.bitwarden_secret.domain_locker_db_password.value
+  })
+}
+

@@ -55,7 +55,6 @@ n8n_data_path                    = "/mnt/docker/appdata/n8n"
 n8n_db_data_location             = "/mnt/docker/appdata/n8n/postgres"
 n8n_db_password_secret_id        = "2ecd207d-97f8-4756-8312-b3a4006eb641"
 n8n_encryption_key_secret_id     = "c04cdd36-24f3-442b-994e-b3a4006ed76b"
-# TODO: Replace with actual Bitwarden secret ID after creating Tailscale auth key
 n8n_tailscale_auth_key_secret_id = "201cdbb6-177f-4188-9a26-b39f002fc4a3"
 
 # Domain name
@@ -67,6 +66,8 @@ git_user_email_secret_id = "b5166a34-6849-4ab1-aa0d-b3be006292d5"
 profilarr_pat_secret_id = "bf724d98-7499-4a0e-ba3f-b3be0063bf14"
 
 # NoteDiscovery configuration
-# TODO: Replace with actual Bitwarden secret IDs after creating secrets
 notediscovery_secret_key_secret_id    = "24281e4c-a2f2-46d3-af67-b3c8009fffb7"
 notediscovery_password_hash_secret_id = "bd289b84-58a8-40f9-8436-b3c800a01612"
+
+# Domain Locker configuration
+domain_locker_db_password_secret_id = "37c7e7b1-414c-47fa-b52b-b3db00122646"

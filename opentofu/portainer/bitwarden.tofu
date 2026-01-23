@@ -135,3 +135,8 @@ data "bitwarden_secret" "notediscovery_secret_key" {
 data "bitwarden_secret" "notediscovery_password_hash" {
   id = var.notediscovery_password_hash_secret_id
 }
+
+# Fetch Domain Locker database password from Bitwarden Secrets Manager
+data "bitwarden_secret" "domain_locker_db_password" {
+  id = var.domain_locker_db_password_secret_id
+}

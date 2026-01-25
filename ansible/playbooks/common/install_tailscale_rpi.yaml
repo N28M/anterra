@@ -1,0 +1,82 @@
+---
+- name: Install and Configure Tailscale
+  hosts: rpi
+  become: true
+  gather_facts: true
+
+  vars:
+    automatically_update: true
+    enable_subnet_router: true
+    enable_exit_node: true
+    # tailscale_auth_key should be defined in ansible vault as a secure auth key
+    # Generate one at: https://login.tailscale.com/admin/settings/keys
+
+  tasks:
+    - name: Install Tailscale from official installer script
+      shell: curl -fsSL https://tailscale.com/install.sh | sh
+      register: tailscale_install
+      changed_when: "'installed' in tailscale_install.stdout or 'upgrade' in tailscale_install.stdout.lower()"
+
+    - name: Build tailscale up command with appropriate flags
+      set_fact:
+        tailscale_up_cmd: "tailscale up --reset{% if enable_subnet_router %} --accept-routes{% endif %}{% if enable_subnet_router and tailscale_subnet_routes is defined and tailscale_subnet_routes | length > 0 %} --advertise-routes={{ tailscale_subnet_routes }}{% endif %}{% if enable_exit_node %} --advertise-exit-node{% endif %}{% if tailscale_auth_key is defined %} --auth-key={{ tailscale_auth_key }}{% endif %}"
+
+    - name: Configure Tailscale with initial setup (authenticate, exit node, subnet routes)
+      shell: "{{ tailscale_up_cmd }}"
+      when: tailscale_auth_key is defined
+      register: tailscale_up_result
+      changed_when: true
+
+    - name: Optimize UDP GRO forwarding for better exit node and subnet router performance
+      block:
+        - name: Create networkd-dispatcher directory
+          file:
+            path: /etc/networkd-dispatcher/routable.d
+            state: directory
+            mode: '0755'
+
+        - name: Create ethtool configuration script for UDP GRO forwarding
+          shell: |
+            printf '#!/bin/sh\n\nethtool -K %s rx-udp-gro-forwarding on rx-gro-list off \n' \
+              "$(ip -o route get 8.8.8.8 | cut -f 5 -d " ")" | \
+              tee /etc/networkd-dispatcher/routable.d/50-tailscale
+          register: ethtool_script_result
+          changed_when: true
+
+        - name: Set executable permissions on ethtool script
+          file:
+            path: /etc/networkd-dispatcher/routable.d/50-tailscale
+            mode: '0755'
+
+        - name: Apply UDP GRO forwarding settings immediately
+          shell: /etc/networkd-dispatcher/routable.d/50-tailscale
+          register: ethtool_apply_result
+          changed_when: true
+
+    - name: Enable Tailscale automatic updates
+      shell: tailscale set --auto-update
+      when: automatically_update | bool
+      register: auto_update_result
+      changed_when: "'auto-update' in auto_update_result.stdout.lower()"
+
+    - name: Disable Tailscale automatic updates
+      shell: tailscale set --auto-update=false
+      when: not (automatically_update | bool)
+      register: auto_update_disable_result
+      changed_when: "'auto-update' in auto_update_disable_result.stdout.lower()"
+
+    - name: Enable IP forwarding for subnet router (IPv4)
+      sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
+        state: present
+        sysctl_set: true
+      when: enable_subnet_router | bool
+
+    - name: Enable IP forwarding for subnet router (IPv6)
+      sysctl:
+        name: net.ipv6.conf.all.forwarding
+        value: '1'
+        state: present
+        sysctl_set: true
+      when: enable_subnet_router | bool

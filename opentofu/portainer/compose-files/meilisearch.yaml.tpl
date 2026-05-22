@@ -1,6 +1,6 @@
 services:
   meilisearch:
-    image: getmeili/meilisearch:latest
+    image: getmeili/meilisearch:v1.43.0
     container_name: meilisearch
     restart: unless-stopped
     ports:
@@ -11,3 +11,5 @@ services:
       - MEILI_NO_ANALYTICS=true
     volumes:
       - ${docker_data_path}/meilisearch/data:/meili_data
+    labels:
+      - "com.centurylinklabs.watchtower.monitor-only=true"

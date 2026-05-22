@@ -116,11 +116,27 @@
         update_cache: true
         allow_downgrade: true
 
+    - name: Configure Docker daemon DNS
+      copy:
+        dest: /etc/docker/daemon.json
+        mode: '0644'
+        content: |
+          {
+            "dns": ["10.0.0.1", "1.1.1.1"]
+          }
+      register: docker_daemon_json
+
     - name: Enable and start Docker service
       systemd:
         name: docker
         enabled: true
         state: started
+
+    - name: Restart Docker if daemon.json changed
+      systemd:
+        name: docker
+        state: restarted
+      when: docker_daemon_json.changed and ansible_facts.services["docker.service"] is defined and ansible_facts.services["docker.service"].state == "running"
 
     - name: Add dockeruser to docker group
       user:

@@ -1,9 +1,7 @@
 provider "bitwarden" {
   access_token = var.bws_access_token
 
-  experimental {
-    embedded_client = true
-  }
+  client_implementation = "embedded"
 }
 
 # Fetch all infrastructure configuration from Bitwarden Secrets Manager

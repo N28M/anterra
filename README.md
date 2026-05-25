@@ -91,19 +91,21 @@ Ansible Vault is used to encrypt sensitive data within the repository.
 4.  **Store Secrets**:
     Ensure all necessary secrets are stored in your Bitwarden vault and organized into projects that the machine account can access. You will need the **Secret ID** (a UUID) for each secret to configure OpenTofu and Ansible.
 
-### 5. Configure Environment Variables
+### 5. Provide the Bitwarden Access Token
 
-OpenTofu requires the Bitwarden access token to be set as an environment variable. Add the following to your `~/.bashrc`, `~/.zshrc`, or equivalent shell profile file:
+OpenTofu reads the Bitwarden Secrets Manager token from the `TF_VAR_bws_access_token` environment variable. **Prefer your OS keyring over plaintext in a shell rc file.** On a desktop with libsecret (GNOME Keyring), store it once and load it at shell startup:
 
 ```bash
-# Bitwarden Secrets Manager Access Token for OpenTofu
-export TF_VAR_bws_access_token="your-bws-access-token-here"
+# store once -- prompts for the value, never hits shell history or a transcript
+secret-tool store --label="BWS token" service bws account anterra
 ```
 
-Reload your shell for the changes to take effect:
-```bash
-source ~/.bashrc
+```fish
+# load at startup (fish shown; adapt the syntax for bash/zsh)
+set -gx TF_VAR_bws_access_token (secret-tool lookup service bws account anterra)
 ```
+
+On a headless host with no keyring session (e.g. a Raspberry Pi), a plaintext `export TF_VAR_bws_access_token="..."` in `~/.bashrc` is the practical fallback -- keep that host trusted and `chmod 600` the rc file.
 
 ### 6. Initial Deployment
 
@@ -259,7 +261,6 @@ Most services are deployed via OpenTofu Portainer stacks. See [docs/services/](d
 - [Immich](docs/services/immich.md) - Photo and video management with AI features
 - [Jellyfin](docs/services/jellyfin.md) - Media streaming server with hardware transcoding
 - [Karakeep](docs/services/karakeep.md) - Bookmark manager with AI tagging
-- [Zerobyte](docs/services/zerobyte.md) - Backup and snapshot solution
 - Plex Media Server - Media streaming server with hardware transcoding (Proxmox VM)
 
 ### Automation
@@ -505,7 +506,7 @@ anterra/
 ## Security
 
 - **Ansible Vault**: Automatic password loading from `ansible/vault/.vault_password`
-- **Bitwarden Access Token**: Environment variable only (`~/.bashrc`)
+- **Bitwarden Access Token**: OS keyring (libsecret) preferred; plaintext env var only as a headless fallback
 - **No Hardcoded Secrets**: All credentials fetched at runtime
 - **Gitignored Files**: Vault passwords, state files, secrets.auto.tfvars
 

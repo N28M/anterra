@@ -8,7 +8,7 @@ Anterra: Infrastructure as Code repository using Ansible + OpenTofu + Bitwarden 
 
 - DO NOT run `ansible-playbook`, `tofu apply`, `tofu destroy`, or any system-changing commands
 - DO prepare commands for the user to run and explain what they do
-- Read-only commands (grep, ls, git status, file reads) are fine without permission
+- Read-only commands are fine without permission: file reads, `grep`/`ls`, `git status|diff|log`, `tofu plan|validate|show|output`, and read-only state inspection over SSH (`zpool status`, `zfs list|get`, `docker ps|inspect|logs`, `qm/pct config|list|status`, `systemctl status`, `journalctl`, `smartctl -a`). System-changing variants of these still require permission.
 
 ## Vault Access Policy
 

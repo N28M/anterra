@@ -48,11 +48,6 @@ internal_reverse_proxy_records:
 external_reverse_proxy_records:
   - domain: files.{{ domain_name }}
     upstream: "http://{{ docker_pve2_ip }}:9200"
-  - domain: homeassistant.{{ domain_name }}
-    upstream: "http://{{ homeassistant_ip }}:8123"
-    extra_headers:
-      - "Host {host}"
-      - "X-Real-IP {remote_host}"
   - domain: immich.{{ domain_name }}
     upstream: "http://{{ docker_pve_ip }}:2283"
   - domain: jellyfin.{{ domain_name }}

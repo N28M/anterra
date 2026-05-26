@@ -4,12 +4,6 @@ This directory contains detailed documentation for all deployed services in the 
 
 ## Services by Category
 
-### Home Automation
-
-| Service | Description | Deployment |
-|---------|-------------|------------|
-| [Home Assistant](services/homeassistant.md) | Home automation platform | Proxmox VM |
-
 ### Media Management
 
 | Service | Description | Deployment |
@@ -52,13 +46,12 @@ This directory contains detailed documentation for all deployed services in the 
 |----------|-------------|----------|
 | docker_pve | Primary Docker host | Immich, n8n, Watchtower |
 | docker_pve2 | Secondary Docker host | Most services |
-| Proxmox VM | Standalone virtual machine | Home Assistant |
+| Proxmox VM | Standalone virtual machine | mediacenter (Plex/Jellyfin) |
 
 ## Quick Reference
 
 ### Services with External Access (VPS Reverse Proxy)
 
-- Home Assistant (homeassistant.example.com)
 - Immich (immich.example.com) - DNS-only mode
 - Jellyfin (jellyfin.example.com) - DNS-only mode
 - Karakeep (keep.example.com)

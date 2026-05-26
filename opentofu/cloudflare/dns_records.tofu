@@ -72,11 +72,7 @@ locals {
       content = local.vps_reverse_proxy_ip
       proxied = true
     }
-    "homeassistant" = {
-      content = local.vps_reverse_proxy_ip
-      proxied = true
-    }
-    "immich" = {
+"immich" = {
       content = local.vps_reverse_proxy_ip
       # DNS-only mode (proxied = false) to comply with Cloudflare ToS
       # Media-heavy services (photos/videos) cannot use Cloudflare proxy

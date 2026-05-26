@@ -1,0 +1,42 @@
+---
+- name: Update VPS system packages
+  hosts: vps
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: true
+
+    - name: Upgrade all system packages
+      apt:
+        upgrade: dist
+      register: system_upgrade
+
+    - name: Remove unused packages
+      apt:
+        autoremove: true
+
+    # Docker daemon restarts automatically when docker-ce is upgraded by apt.
+    # Wait briefly for it to settle before checking service states.
+    - name: Wait for Docker daemon to settle after potential restart
+      wait_for:
+        timeout: 10
+      when: system_upgrade.changed
+
+    # Services must remain running -- reboot is handled separately by the user.
+    - name: Ensure Caddy is running
+      systemd:
+        name: caddy
+        state: started
+
+    - name: Ensure Docker is running
+      systemd:
+        name: docker
+        state: started
+
+    - name: Ensure Tailscale is running
+      systemd:
+        name: tailscaled
+        state: started

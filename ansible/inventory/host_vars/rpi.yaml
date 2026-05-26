@@ -1,3 +1,5 @@
 ---
-# Connection settings for rpi host
-ansible_connection: local
+# When using rpi as fallback control node, run playbooks against other hosts only --
+# rpi self-configuration is not supported from rpi itself.
+ansible_host: rpi
+ansible_user: prodigal4176

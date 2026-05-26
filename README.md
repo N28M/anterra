@@ -51,7 +51,11 @@ git clone https://github.com/N28M/anterra.git
 cd anterra
 ```
 
-### 3. Configure Ansible Vault
+### 3. Configure SSH
+
+Hosts that use an SSH alias as their `ansible_host` (currently `rpi` and `vps`) must have matching entries in `~/.ssh/config` on the control node. All managed hosts use key-based authentication — ensure your public key is present in `~/.ssh/authorized_keys` on each host before running playbooks.
+
+### 4. Configure Ansible Vault
 
 Ansible Vault is used to encrypt sensitive data within the repository.
 
@@ -74,7 +78,7 @@ Ansible Vault is used to encrypt sensitive data within the repository.
     ansible-vault encrypt ansible/inventory/group_vars/all/secrets.yaml
     ```
 
-### 4. Set Up Bitwarden Secrets Manager
+### 5. Set Up Bitwarden Secrets Manager
 
 1.  **Create a Machine Account**:
     - In your Bitwarden web vault, go to **Settings** > **Machine Accounts**.
@@ -91,7 +95,7 @@ Ansible Vault is used to encrypt sensitive data within the repository.
 4.  **Store Secrets**:
     Ensure all necessary secrets are stored in your Bitwarden vault and organized into projects that the machine account can access. You will need the **Secret ID** (a UUID) for each secret to configure OpenTofu and Ansible.
 
-### 5. Provide the Bitwarden Access Token
+### 6. Provide the Bitwarden Access Token
 
 OpenTofu reads the Bitwarden Secrets Manager token from the `TF_VAR_bws_access_token` environment variable. **Prefer your OS keyring over plaintext in a shell rc file.** On a desktop with libsecret (GNOME Keyring), store it once and load it at shell startup:
 
@@ -107,7 +111,7 @@ set -gx TF_VAR_bws_access_token (secret-tool lookup service bws account anterra)
 
 On a headless host with no keyring session (e.g. a Raspberry Pi), a plaintext `export TF_VAR_bws_access_token="..."` in `~/.bashrc` is the practical fallback -- keep that host trusted and `chmod 600` the rc file.
 
-### 6. Initial Deployment
+### 7. Initial Deployment
 
 With the setup complete, you can now run the initial Ansible playbooks to provision your VMs and then run OpenTofu to configure your infrastructure.
 

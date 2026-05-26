@@ -2,3 +2,4 @@
 # Connection settings for Proxmox host
 ansible_host: "{{ pve_ip }}"
 ansible_user: root
+ansible_python_interpreter: /usr/bin/python3.13

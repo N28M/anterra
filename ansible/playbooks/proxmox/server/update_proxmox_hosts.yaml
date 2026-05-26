@@ -1,0 +1,70 @@
+---
+- name: Update Proxmox hosts
+  hosts: proxmox_hosts
+  become: true
+  gather_facts: true
+  # serial: 1 — pve-cluster-blr has 2 nodes with 2 votes; both must stay up for quorum.
+  # Updating one at a time keeps the cluster healthy throughout.
+  serial: 1
+
+  tasks:
+    # Proxmox ships with enterprise repo lines that produce apt errors unless a
+    # subscription key is present. Disable them before updating; the no-subscription
+    # repo below provides all the same PVE packages.
+
+    - name: Disable Proxmox VE enterprise repository
+      replace:
+        path: /etc/apt/sources.list.d/pve-enterprise.list
+        regexp: '^(deb\s+https://enterprise\.proxmox\.com.*)'
+        replace: '# \1'
+      failed_when: false
+
+    - name: Disable Ceph enterprise repository
+      replace:
+        path: /etc/apt/sources.list.d/ceph.list
+        regexp: '^(deb\s+https://enterprise\.proxmox\.com.*)'
+        replace: '# \1'
+      failed_when: false
+
+    # proxmox.sources (DEB822) already ships pve-no-subscription; remove the
+    # legacy .list file if a prior run of this playbook accidentally created it.
+    - name: Remove stale pve-no-subscription.list if present
+      file:
+        path: /etc/apt/sources.list.d/pve-no-subscription.list
+        state: absent
+
+    - name: Update apt cache
+      apt:
+        update_cache: true
+
+    - name: Upgrade all system packages
+      apt:
+        upgrade: dist
+      register: system_upgrade
+
+    - name: Remove unused packages
+      apt:
+        autoremove: true
+
+    - name: Check if reboot is required
+      stat:
+        path: /var/run/reboot-required
+      register: reboot_required_file
+
+    # Services must remain running -- reboot is handled manually by the user.
+    - name: Ensure pve-cluster is running
+      systemd:
+        name: pve-cluster
+        state: started
+
+    - name: Ensure pveproxy is running
+      systemd:
+        name: pveproxy
+        state: started
+
+    - name: Report result
+      debug:
+        msg: >-
+          {{ inventory_hostname }}:
+          {{ 'packages upgraded' if system_upgrade.changed else 'already up to date' }}.
+          {{ 'REBOOT REQUIRED.' if reboot_required_file.stat.exists else 'No reboot needed.' }}

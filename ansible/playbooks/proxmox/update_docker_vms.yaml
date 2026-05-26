@@ -1,0 +1,127 @@
+---
+- name: Fetch Bitwarden Secrets
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: always
+  tasks:
+    - name: Fetch docker_pve password from Bitwarden
+      shell: bws secret get {{ docker_pve_ssh_password_uuid }} --access-token "{{ bws_access_token }}" --output json
+      register: docker_pve_password_result
+      changed_when: false
+      no_log: true
+      when: docker_pve_ssh_password_uuid is defined
+
+    - name: Set docker_pve password fact
+      set_fact:
+        docker_pve_password: "{{ (docker_pve_password_result.stdout | from_json).value }}"
+      no_log: true
+      when:
+        - docker_pve_ssh_password_uuid is defined
+        - docker_pve_password_result.stdout is defined
+
+    - name: Fetch docker_pve2 password from Bitwarden
+      shell: bws secret get {{ docker_pve2_ssh_password_uuid }} --access-token "{{ bws_access_token }}" --output json
+      register: docker_pve2_password_result
+      changed_when: false
+      no_log: true
+      when: docker_pve2_ssh_password_uuid is defined
+
+    - name: Set docker_pve2 password fact
+      set_fact:
+        docker_pve2_password: "{{ (docker_pve2_password_result.stdout | from_json).value }}"
+      no_log: true
+      when:
+        - docker_pve2_ssh_password_uuid is defined
+        - docker_pve2_password_result.stdout is defined
+
+    - name: Add become password to docker_pve
+      add_host:
+        name: docker_pve
+        dockeruser_password: "{{ docker_pve_password }}"
+      no_log: true
+      when: docker_pve_password is defined
+
+    - name: Add become password to docker_pve2
+      add_host:
+        name: docker_pve2
+        dockeruser_password: "{{ docker_pve2_password }}"
+      no_log: true
+      when: docker_pve2_password is defined
+
+- name: Update Docker VMs
+  hosts: docker_pve,docker_pve2
+  become: true
+  gather_facts: false
+  serial: 1
+
+  tasks:
+    - name: Set become credentials
+      set_fact:
+        ansible_become_pass: "{{ dockeruser_password }}"
+      no_log: true
+
+    - name: Gather facts
+      setup:
+
+    - name: Update apt cache
+      apt:
+        update_cache: true
+
+    - name: Upgrade all system packages
+      apt:
+        upgrade: dist
+      register: system_upgrade
+
+    - name: Remove unused packages
+      apt:
+        autoremove: true
+
+    # Docker daemon restarts automatically when docker-ce is upgraded by apt.
+    # Wait briefly for it to settle before checking service states.
+    - name: Wait for Docker daemon to settle after potential restart
+      wait_for:
+        timeout: 10
+      when: system_upgrade.changed
+
+    - name: Ensure Docker is running
+      systemd:
+        name: docker
+        state: started
+
+    # Portainer agent runs only on docker_pve; docker_pve2 hosts the Portainer server.
+    - name: Pull latest Portainer Agent image
+      docker_image:
+        name: portainer/agent:latest
+        source: pull
+        force_source: true
+      register: agent_pull
+      when: inventory_hostname == 'docker_pve'
+
+    - name: Recreate Portainer Agent container if image updated
+      docker_container:
+        name: portainer_agent
+        image: portainer/agent:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "9001:9001"
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+          - /var/lib/docker/volumes:/var/lib/docker/volumes
+      when:
+        - inventory_hostname == 'docker_pve'
+        - agent_pull.changed
+
+    - name: Check if reboot is required
+      stat:
+        path: /var/run/reboot-required
+      register: reboot_required_file
+
+    - name: Report result
+      debug:
+        msg: >-
+          {{ inventory_hostname }}:
+          {{ 'packages upgraded' if system_upgrade.changed else 'already up to date' }}.
+          {{ 'Portainer agent updated.' if (agent_pull.changed | default(false)) else '' }}
+          {{ 'REBOOT REQUIRED.' if reboot_required_file.stat.exists else 'No reboot needed.' }}

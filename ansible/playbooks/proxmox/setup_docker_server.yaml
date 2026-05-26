@@ -54,7 +54,7 @@
 
   vars:
     docker_user: dockeruser
-    portainer_agent_image: "portainer/agent:2.21.5"
+    portainer_agent_image: "portainer/agent:latest"
 
   tasks:
     - name: Gather facts
@@ -98,20 +98,19 @@
 
     - name: Add Docker repository
       apt_repository:
-        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_facts['distribution_release'] }} stable"
         state: present
 
-    - name: Install Docker (version 28.0.1)
+    - name: Install Docker
       apt:
         name:
-          - docker-ce=5:28.0.1-1~ubuntu.{{ ansible_distribution_version }}~{{ ansible_lsb.codename }}
-          - docker-ce-cli=5:28.0.1-1~ubuntu.{{ ansible_distribution_version }}~{{ ansible_lsb.codename }}
+          - docker-ce
+          - docker-ce-cli
           - containerd.io
           - docker-buildx-plugin
           - docker-compose-plugin
         state: present
         update_cache: true
-        allow_downgrade: true
 
     - name: Enable and start Docker service
       systemd:

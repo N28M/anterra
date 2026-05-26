@@ -171,10 +171,10 @@
         group: root
         content: |
           Types: deb
-          URIs: https://repo.jellyfin.org/{{ ansible_distribution | lower }}
-          Suites: {{ ansible_distribution_release }}
+          URIs: https://repo.jellyfin.org/{{ ansible_facts['distribution'] | lower }}
+          Suites: {{ ansible_facts['distribution_release'] }}
           Components: main
-          Architectures: {{ 'amd64' if ansible_architecture == 'x86_64' else ansible_architecture }}
+          Architectures: {{ 'amd64' if ansible_facts['architecture'] == 'x86_64' else ansible_facts['architecture'] }}
           Signed-By: /etc/apt/keyrings/jellyfin.gpg
 
     # All repositories are now configured. Run apt update once and install packages.

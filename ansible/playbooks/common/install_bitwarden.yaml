@@ -12,7 +12,7 @@
     bws_arch_map:
       x86_64: "x86_64-unknown-linux-gnu"
       aarch64: "aarch64-unknown-linux-gnu"
-    bws_arch: "{{ bws_arch_map[ansible_architecture] | default('x86_64-unknown-linux-gnu') }}"
+    bws_arch: "{{ bws_arch_map[ansible_facts['architecture']] | default('x86_64-unknown-linux-gnu') }}"
     bws_download_url: "https://github.com/bitwarden/sdk-sm/releases/download/bws-v{{ bws_version }}/bws-{{ bws_arch }}-{{ bws_version }}.zip"
 
   tasks:

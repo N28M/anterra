@@ -46,7 +46,7 @@
       x86_64: amd64
       aarch64: arm64
       armv7l: armv7
-    caddy_arch: "{{ caddy_arch_map[ansible_architecture] | default('amd64') }}"
+    caddy_arch: "{{ caddy_arch_map[ansible_facts['architecture']] | default('amd64') }}"
     caddy_download_url: "https://caddyserver.com/api/download?os=linux&arch={{ caddy_arch }}&p=github.com%2Fcaddy-dns%2Fcloudflare&idempotency=23757119970210"
 
   tasks:

@@ -1,0 +1,26 @@
+---
+# Ensures the corosync-qnetd daemon (external quorum vote provider) is installed
+# and running on rpi. rpi is the QDevice host for the 2-node pve-cluster-blr,
+# supplying a third vote so the cluster survives the loss of one node.
+#
+# Scope: this playbook only ensures the daemon package + service. Registering the
+# QDevice with the cluster (cert exchange + the corosync.conf device stanza) is a
+# manual one-time step -- `pvecm qdevice setup <rpi-ip>` on a cluster node --
+# because cluster/quorum state is managed manually by design, not by Ansible.
+- name: Ensure corosync-qnetd on rpi (cluster QDevice host)
+  hosts: rpi
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Install corosync-qnetd
+      apt:
+        name: corosync-qnetd
+        state: present
+        update_cache: true
+
+    - name: Ensure corosync-qnetd service is enabled and running
+      systemd:
+        name: corosync-qnetd
+        enabled: true
+        state: started

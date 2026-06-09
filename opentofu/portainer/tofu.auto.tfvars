@@ -78,3 +78,7 @@ whoa_nihongo_secret_key_secret_id = "38779934-50a7-4c10-ae5a-b3fe0054254f"
 
 # Meilisearch configuration
 meili_master_key_secret_id = "bf431938-c35c-4f45-afe8-b4280093c764"
+
+# Chessalytic configuration
+chessalytic_db_password_secret_id        = "701e4544-0f53-44ff-a9b5-b4640073ceaf"
+chessalytic_ai_encryption_key_secret_id  = "817e7926-3163-47b1-8664-b4640073eb59"

@@ -304,3 +304,17 @@ variable "meili_master_key_secret_id" {
   type        = string
   sensitive   = true
 }
+
+# Chessalytic database password (Bitwarden secret ID)
+variable "chessalytic_db_password_secret_id" {
+  description = "The Bitwarden secret ID for Chessalytic PostgreSQL database password"
+  type        = string
+  sensitive   = true
+}
+
+# Chessalytic AI encryption key (Bitwarden secret ID)
+variable "chessalytic_ai_encryption_key_secret_id" {
+  description = "The Bitwarden secret ID for Chessalytic AES-256-GCM key (encrypts stored AI API keys)"
+  type        = string
+  sensitive   = true
+}

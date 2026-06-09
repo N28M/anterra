@@ -177,6 +177,19 @@ resource "portainer_stack" "reactive_resume" {
   })
 }
 
+# Chessalytic stack - self-hosted chess.com game review frontend
+resource "portainer_stack" "chessalytic" {
+  name            = "chessalytic"
+  deployment_type = "standalone"
+  method          = "string"
+  endpoint_id     = var.docker_pve2_portainer_endpoint_id
+  stack_file_content = templatefile("${path.module}/compose-files/chessalytic.yaml.tpl", {
+    docker_data_path  = var.docker_data_path
+    db_password       = data.bitwarden_secret.chessalytic_db_password.value
+    ai_encryption_key = data.bitwarden_secret.chessalytic_ai_encryption_key.value
+  })
+}
+
 # Meilisearch stack - full-text search engine for Karakeep
 resource "portainer_stack" "meilisearch" {
   name            = "meilisearch"

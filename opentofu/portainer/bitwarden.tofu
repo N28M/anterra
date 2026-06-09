@@ -149,3 +149,13 @@ data "bitwarden_secret" "whoa_nihongo_secret_key" {
 data "bitwarden_secret" "meili_master_key" {
   id = var.meili_master_key_secret_id
 }
+
+# Fetch Chessalytic database password from Bitwarden Secrets Manager
+data "bitwarden_secret" "chessalytic_db_password" {
+  id = var.chessalytic_db_password_secret_id
+}
+
+# Fetch Chessalytic AI encryption key from Bitwarden Secrets Manager
+data "bitwarden_secret" "chessalytic_ai_encryption_key" {
+  id = var.chessalytic_ai_encryption_key_secret_id
+}

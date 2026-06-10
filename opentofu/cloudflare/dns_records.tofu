@@ -27,6 +27,9 @@ locals {
     "helium" = {
       content = local.homelab_reverse_proxy_ip
     }
+    "llm" = {
+      content = local.homelab_reverse_proxy_ip
+    }
     "flaresolverr" = {
       content = local.homelab_reverse_proxy_ip
     }

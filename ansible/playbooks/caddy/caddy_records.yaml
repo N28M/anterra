@@ -42,6 +42,8 @@ internal_reverse_proxy_records:
     upstream: "http://{{ docker_pve2_ip }}:3030"
   - domain: resume.{{ domain_name }}
     upstream: "http://{{ docker_pve2_ip }}:3100"
+  - domain: llm.{{ domain_name }}
+    upstream: "http://{{ ph16_71_tailscale_ip }}:12434"
 
 # -------------------------------------------------------------------------
 # External Records - Handled by VPS Caddy instance (vps)

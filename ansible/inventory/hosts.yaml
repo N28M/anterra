@@ -18,3 +18,12 @@ all:
     laptop:
       hosts:
         ph16-71:
+    k8s:
+      children:
+        k8s_control_plane:
+          hosts:
+            k-control:
+        k8s_workers:
+          hosts:
+            k-worker1:
+            k-worker2:

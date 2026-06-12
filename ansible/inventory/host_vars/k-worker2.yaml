@@ -1,0 +1,3 @@
+---
+ansible_host: k-worker2
+ansible_user: prodigal4176

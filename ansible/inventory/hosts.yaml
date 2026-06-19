@@ -15,9 +15,6 @@ all:
       hosts:
         pve:
         pve2:
-    laptop:
-      hosts:
-        ph16-71:
     k8s:
       children:
         k8s_control_plane:

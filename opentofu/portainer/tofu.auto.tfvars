@@ -29,15 +29,6 @@ wireguard_private_key_secret_id   = "02f3fa48-ea5a-4aa8-8c1f-b3d7000f086e"
 wireguard_preshared_key_secret_id = "216d6a97-10be-49f2-97ea-b3d7000f27fb"
 wireguard_addresses_secret_id     = "15f6f039-e9fc-48d7-9b3c-b3d7000f4453"
 
-# Tailscale-AirVPN WireGuard configuration (separate AirVPN config)
-ts_wireguard_private_key_secret_id   = "789cf967-4187-4858-86f2-b3d700105a23"
-ts_wireguard_preshared_key_secret_id = "38a591b6-677d-4ebd-b698-b3d700109cd9"
-ts_wireguard_addresses_secret_id     = "4391e20d-8ef6-41ed-8148-b3d70010d095"
-
-
-# Bitwarden secret UUID for Tailscale auth key
-tailscale_auth_key_uuid = "201cdbb6-177f-4188-9a26-b39f002fc4a3"
-
 # Immich configuration
 immich_version               = "v2"
 immich_upload_location       = "/mnt/docker/pictures"

@@ -34,21 +34,6 @@ data "bitwarden_secret" "wireguard_addresses" {
   id = var.wireguard_addresses_secret_id
 }
 
-# Fetch Tailscale-AirVPN WireGuard private key from Bitwarden Secrets Manager
-data "bitwarden_secret" "ts_wireguard_private_key" {
-  id = var.ts_wireguard_private_key_secret_id
-}
-
-# Fetch Tailscale-AirVPN WireGuard preshared key from Bitwarden Secrets Manager
-data "bitwarden_secret" "ts_wireguard_preshared_key" {
-  id = var.ts_wireguard_preshared_key_secret_id
-}
-
-# Fetch Tailscale-AirVPN WireGuard address from Bitwarden Secrets Manager
-data "bitwarden_secret" "ts_wireguard_addresses" {
-  id = var.ts_wireguard_addresses_secret_id
-}
-
 # Fetch Docker user PUID from Bitwarden Secrets Manager
 data "bitwarden_secret" "docker_user_puid" {
   id = var.docker_user_puid_secret_id
@@ -59,11 +44,6 @@ data "bitwarden_secret" "docker_user_pgid" {
   id = var.docker_user_pgid_secret_id
 }
 
-
-# Fetch Tailscale auth key from Bitwarden Secrets Manager
-data "bitwarden_secret" "tailscale_auth_key" {
-  id = var.tailscale_auth_key_uuid
-}
 
 # Fetch Immich database password from Bitwarden Secrets Manager
 data "bitwarden_secret" "immich_db_password" {

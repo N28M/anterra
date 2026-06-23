@@ -119,35 +119,6 @@ variable "wireguard_addresses_secret_id" {
   sensitive   = true
 }
 
-# Tailscale-AirVPN WireGuard private key (Bitwarden secret ID)
-variable "ts_wireguard_private_key_secret_id" {
-  description = "The Bitwarden secret ID for the Tailscale-AirVPN WireGuard private key"
-  type        = string
-  sensitive   = true
-}
-
-# Tailscale-AirVPN WireGuard preshared key (Bitwarden secret ID)
-variable "ts_wireguard_preshared_key_secret_id" {
-  description = "The Bitwarden secret ID for the Tailscale-AirVPN WireGuard preshared key"
-  type        = string
-  sensitive   = true
-}
-
-# Tailscale-AirVPN WireGuard address (Bitwarden secret ID)
-variable "ts_wireguard_addresses_secret_id" {
-  description = "The Bitwarden secret ID for the Tailscale-AirVPN WireGuard VPN address"
-  type        = string
-  sensitive   = true
-}
-
-
-# Tailscale auth key UUID (Bitwarden secret ID)
-variable "tailscale_auth_key_uuid" {
-  description = "The Bitwarden secret UUID for Tailscale auth key"
-  type        = string
-  sensitive   = true
-}
-
 # Immich version tag
 variable "immich_version" {
   description = "Docker image tag for Immich (e.g., 'v2', 'v2.3.1', or 'release')"
